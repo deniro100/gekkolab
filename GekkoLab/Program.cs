@@ -28,11 +28,14 @@ builder.Services.AddHostedService<SensorPollingService>();
 
 var app = builder.Build();
 
+// Ensure data directory exists
+Directory.CreateDirectory("gekkodata");
+
 // Apply migrations on startup
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<GekkoLabDbContext>();
-    dbContext.Database.EnsureCreated();
+    dbContext.Database.Migrate();
 }
 
 // Configure the HTTP request pipeline.
@@ -43,6 +46,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseDefaultFiles(); // Serve index.html as default
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthorization();

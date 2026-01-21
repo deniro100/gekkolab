@@ -49,8 +49,8 @@ namespace GekkoLab.Services;
                     Humidity = data.Humidity,
                     Pressure = data.MillimetersOfMercury,
                     Timestamp = DateTime.UtcNow,
-                    ////IsValid = data.Temperature.HasValue && data.Humidity.HasValue && data.Pressure.HasValue,
-                    ////ErrorMessage = !data.Temperature.HasValue ? "Failed to read sensor data" : null
+                    Metadata = new SensorMetadata { ReaderType = data.Metadata.ReaderType },
+                    IsValid = true
                 };
 
                 await repository.SaveReadingAsync(reading);

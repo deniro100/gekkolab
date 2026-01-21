@@ -4,20 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GekkoLab - Sensor Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-        .reading { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 50px auto; padding: 20px; }
+        .readings-container { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 30px; }
+        .reading { background: #f5f5f5; padding: 20px; border-radius: 8px; flex: 1; min-width: 150px; }
         .value { font-size: 2em; font-weight: bold; color: #333; }
         .label { color: #666; font-size: 0.9em; }
         .timestamp { color: #999; font-size: 0.8em; margin-top: 10px; }
         .error { color: red; }
+        .chart-container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .chart-title { font-size: 1.2em; font-weight: bold; margin-bottom: 15px; color: #333; }
+        canvas { max-height: 400px; }
     </style>
 </head>
 <body>
 <h1>GekkoLab Sensor Dashboard</h1>
 <div id="data">Loading...</div>
 
+<div class="chart-container">
+    <div class="chart-title">Last 24 Hours History</div>
+    <canvas id="historyChart"></canvas>
+</div>
+
 <script>
+    let chart = null;
+
     async function fetchLatest() {
         try {
             const response = await fetch('/api/sensor/latest');
@@ -25,6 +38,7 @@
             const data = await response.json();
 
             document.getElementById('data').innerHTML = `
+                <div class="readings-container">
                     <div class="reading">
                         <div class="label">Temperature</div>
                         <div class="value">${data.temperature.toFixed(1)} °C</div>
@@ -35,16 +49,142 @@
                     </div>
                     <div class="reading">
                         <div class="label">Pressure</div>
-                        <div class="value">${data.pressure.toFixed(1)} hPa</div>
-                    </div><div class="timestamp">Last updated: ${new Date(data.timestamp).toLocaleString()}</div>
-                `;
+                        <div class="value">${data.pressure.toFixed(1)} mmHg</div>
+                    </div>
+                </div>
+                <div class="timestamp">Last updated: ${new Date(data.timestamp).toLocaleString()}</div>
+            `;
         } catch (err) {
             document.getElementById('data').innerHTML = `<p class="error">${err.message}</p>`;
         }
     }
 
+    async function fetchHistory() {
+        try {
+            const now = new Date();
+            const from = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+            const response = await fetch(`/api/sensor/history?from=${from.toISOString()}&to=${now.toISOString()}`);
+            if (!response.ok) throw new Error('No history data available');
+            const data = await response.json();
+
+            if (data.length === 0) {
+                return;
+            }
+
+            const labels = data.map(d => new Date(d.timestamp));
+            const temperatures = data.map(d => d.temperature);
+            const humidities = data.map(d => d.humidity);
+            const pressures = data.map(d => d.pressure);
+
+            const ctx = document.getElementById('historyChart').getContext('2d');
+
+            if (chart) {
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = temperatures;
+                chart.data.datasets[1].data = humidities;
+                chart.data.datasets[2].data = pressures;
+                chart.update();
+            } else {
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Temperature (°C)',
+                                data: temperatures,
+                                borderColor: '#e74c3c',
+                                backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                tension: 0.3,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Humidity (%)',
+                                data: humidities,
+                                borderColor: '#3498db',
+                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                tension: 0.3,
+                                yAxisID: 'y1'
+                            },
+                            {
+                                label: 'Pressure (mmHg)',
+                                data: pressures,
+                                borderColor: '#2ecc71',
+                                backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                                tension: 0.3,
+                                yAxisID: 'y2'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    displayFormats: {
+                                        hour: 'HH:mm',
+                                        minute: 'HH:mm'
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Time'
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Temperature (°C)',
+                                    color: '#e74c3c'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Humidity (%)',
+                                    color: '#3498db'
+                                },
+                                grid: {
+                                    drawOnChartArea: false
+                                }
+                            },
+                            y2: {
+                                type: 'linear',
+                                display: false,
+                                position: 'right'
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching history:', err);
+        }
+    }
+
+    // Initial load
     fetchLatest();
-    setInterval(fetchLatest, 10000); // Refresh every 10 secs
+    fetchHistory();
+
+    // Refresh every 60 seconds
+    setInterval(fetchLatest, 60000);
+    setInterval(fetchHistory, 60000);
 </script>
 </body>
 </html>

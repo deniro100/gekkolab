@@ -1,5 +1,10 @@
 ﻿namespace GekkoLab.Models;
 
+public class SensorMetadata
+{
+    public string? ReaderType { get; set; }
+}
+
 public class SensorReading
 {
     public int Id { get; set; }
@@ -9,4 +14,5 @@ public class SensorReading
     public DateTime Timestamp { get; set; }
     public bool IsValid { get; set; }
     public string? ErrorMessage { get; set; }
+    public SensorMetadata? Metadata { get; set; }
 }

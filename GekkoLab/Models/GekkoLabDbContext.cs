@@ -19,6 +19,11 @@ public class GekkoLabDbContext : DbContext
             entity.Property(e => e.Temperature).IsRequired();
             entity.Property(e => e.Humidity).IsRequired();
             entity.Property(e => e.Pressure).IsRequired();
+            entity.OwnsOne(e => e.Metadata, metadata =>
+            {
+                metadata.Property(m => m.ReaderType)
+                    .HasDefaultValue("unknown");
+            });
         });
     }
 }

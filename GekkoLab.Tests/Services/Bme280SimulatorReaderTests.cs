@@ -82,6 +82,17 @@ public class Bme280SimulatorReaderTests
     }
 
     [TestMethod]
+    public async Task ReadSensorDataAsync_MetadataReaderTypeIsSimulator()
+    {
+        // Act
+        var result = await _reader.ReadSensorDataAsync();
+
+        // Assert
+        result.Metadata.Should().NotBeNull();
+        result.Metadata.ReaderType.Should().Be("simulator");
+    }
+
+    [TestMethod]
     public async Task ReadSensorDataAsync_ReturnsRandomValues()
     {
         // Act

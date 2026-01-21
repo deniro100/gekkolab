@@ -18,7 +18,8 @@ public class Bme280SimulatorReader : IBme280Reader
             TemperatureCelsius: 20 + _random.NextDouble() * 10,
             Humidity: 40 + _random.NextDouble() * 30,
             MillimetersOfMercury: 740 + _random.NextDouble() * 40,
-            Timestamp: DateTime.UtcNow);
+            Timestamp: DateTime.UtcNow,
+            Metadata: new Bme280DataMetadata(ReaderType: "simulator"));
 
         _logger.LogDebug("Simulated sensor data: T={Temp}°C, H={Hum}%, P={Press}mm",
             data.TemperatureCelsius, data.Humidity, data.MillimetersOfMercury);

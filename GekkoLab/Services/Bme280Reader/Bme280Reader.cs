@@ -59,7 +59,8 @@ public class Bme280Reader : IBme280Reader, IDisposable
                 TemperatureCelsius: result.Temperature.Value.DegreesCelsius,
                 Humidity: result.Humidity.Value.Percent,
                 MillimetersOfMercury: result.Pressure.Value.MillimetersOfMercury,
-                Timestamp: DateTime.UtcNow));
+                Timestamp: DateTime.UtcNow,
+                Metadata: new Bme280DataMetadata(ReaderType: "bme280")));
         }
         catch (Exception)
         {
