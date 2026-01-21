@@ -1,0 +1,24 @@
+﻿services:
+  gekkolab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gekkolab
+    ports:
+      - "5050:5050"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://*:5050
+    volumes:
+      # Persist database outside container
+      - gekkolab-data:/app/gekkodata
+      # For real BME280 sensor access (uncomment when using hardware)
+      # - /dev/i2c-1:/dev/i2c-1
+    # For I2C access on Raspberry Pi (uncomment when using hardware)
+    # devices:
+    #   - /dev/i2c-1:/dev/i2c-1
+    # privileged: true
+    restart: unless-stopped
+
+volumes:
+  gekkolab-data:

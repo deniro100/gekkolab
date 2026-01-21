@@ -26,8 +26,9 @@ namespace GekkoLab.Services;
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var intervalMinutes = _configuration.GetValue<int>("SensorConfiguration:PollingIntervalMinutes", 1);
-            var interval = TimeSpan.FromMinutes(intervalMinutes);
+            var interval = _configuration.GetValue<TimeSpan>("SensorConfiguration:PollingInterval", TimeSpan.FromMinutes(1));
+            
+            _logger.LogInformation("Sensor polling interval set to {Interval}", interval);
 
             _timer = new Timer(async _ => await ReadAndStoreSensorData(), null, TimeSpan.Zero, interval);
 

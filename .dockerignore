@@ -1,0 +1,30 @@
+﻿# Ignore build outputs
+**/bin/
+**/obj/
+**/publish/
+
+# Ignore test projects
+GekkoLab.Tests/
+
+# Ignore IDE files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore deploy scripts (not needed in container)
+deploy/
+
+# Ignore test results
+TestResults/
+
+# Ignore local database
+**/gekkodata/
+*.db
+*.db-shm
+*.db-wal
