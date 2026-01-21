@@ -1,4 +1,5 @@
 ﻿using GekkoLab.Models;
+using GekkoLab.Services.Bme280Reader;
 using GekkoLab.Services.Repository;
 
 namespace GekkoLab.Services;
@@ -53,7 +54,7 @@ namespace GekkoLab.Services;
                 };
 
                 await repository.SaveReadingAsync(reading);
-                _logger.LogInformation($"Sensor data saved: T={reading.Temperature}°C, H={reading.Humidity}%, P={reading.Pressure}hPa");
+                _logger.LogInformation($"Sensor data saved: T={reading.Temperature}°C, H={reading.Humidity}%, P={reading.Pressure}mm");
             }
             catch (Exception ex)
             {

@@ -1,6 +1,6 @@
 ﻿using GekkoLab.Models;
 
-namespace GekkoLab.Services;
+namespace GekkoLab.Services.Bme280Reader;
 
 public interface IBme280Reader
 {

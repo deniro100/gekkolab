@@ -1,5 +1,6 @@
 using GekkoLab.Models;
 using GekkoLab.Services;
+using GekkoLab.Services.Bme280Reader;
 using GekkoLab.Services.Repository;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +17,11 @@ builder.Services.AddDbContext<GekkoLabDbContext>(options =>
 builder.Services.AddScoped<ISensorReadingRepository, SensorReadingRepository>();
 
 // Register sensor reader
-builder.Services.AddSingleton<IBme280Reader, Bme280Reader>();
+// Register sensor reader provider and resolve IBme280Reader from it
+builder.Services.AddSingleton<IBme280SensorReaderProvider, Bme280SensorReaderProvider>();
+builder.Services.AddSingleton<IBme280Reader>(sp => 
+    sp.GetRequiredService<IBme280SensorReaderProvider>().GetReader());
+
 
 // Register background services
 builder.Services.AddHostedService<SensorPollingService>();

@@ -1,0 +1,50 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GekkoLab - Sensor Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .reading { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .value { font-size: 2em; font-weight: bold; color: #333; }
+        .label { color: #666; font-size: 0.9em; }
+        .timestamp { color: #999; font-size: 0.8em; margin-top: 10px; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+<h1>GekkoLab Sensor Dashboard</h1>
+<div id="data">Loading...</div>
+
+<script>
+    async function fetchLatest() {
+        try {
+            const response = await fetch('/api/sensor/latest');
+            if (!response.ok) throw new Error('No data available');
+            const data = await response.json();
+
+            document.getElementById('data').innerHTML = `
+                    <div class="reading">
+                        <div class="label">Temperature</div>
+                        <div class="value">${data.temperature.toFixed(1)} °C</div>
+                    </div>
+                    <div class="reading">
+                        <div class="label">Humidity</div>
+                        <div class="value">${data.humidity.toFixed(1)} %</div>
+                    </div>
+                    <div class="reading">
+                        <div class="label">Pressure</div>
+                        <div class="value">${data.pressure.toFixed(1)} hPa</div>
+                    </div><div class="timestamp">Last updated: ${new Date(data.timestamp).toLocaleString()}</div>
+                `;
+        } catch (err) {
+            document.getElementById('data').innerHTML = `<p class="error">${err.message}</p>`;
+        }
+    }
+
+    fetchLatest();
+    setInterval(fetchLatest, 10000); // Refresh every 10 secs
+</script>
+</body>
+</html>

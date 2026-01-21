@@ -1,9 +1,8 @@
 using System.Device.I2c;
 using GekkoLab.Models;
 using Iot.Device.Bmxx80;
-using Iot.Device.Bmxx80.ReadResult;
 
-namespace GekkoLab.Services;
+namespace GekkoLab.Services.Bme280Reader;
 
 public class Bme280Reader : IBme280Reader, IDisposable
 {
@@ -12,12 +11,15 @@ public class Bme280Reader : IBme280Reader, IDisposable
     
     private readonly I2cDevice? _i2cDevice;
     private readonly Bme280? _bme280;
+    private readonly ILogger<Bme280Reader> _logger;
     private bool _disposed;
 
     public bool IsAvailable => _bme280 != null;
 
-    public Bme280Reader()
+    public Bme280Reader(ILogger<Bme280Reader> logger)
     {
+        this._logger = logger;
+
         try
         {
             var i2cSettings = new I2cConnectionSettings(I2cBusId, Bme280Address);
