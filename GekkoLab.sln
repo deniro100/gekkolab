@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GekkoLab", "GekkoLab\GekkoLab.csproj", "{280C739D-BE7A-4D5B-8681-82F3385695CC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{280C739D-BE7A-4D5B-8681-82F3385695CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{280C739D-BE7A-4D5B-8681-82F3385695CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{280C739D-BE7A-4D5B-8681-82F3385695CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{280C739D-BE7A-4D5B-8681-82F3385695CC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
