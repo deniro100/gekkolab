@@ -28,7 +28,7 @@ Write-Host ""
 
 # Step 1: Check Docker version on Pi
 Write-Host "[1/6] Checking Docker version on Raspberry Pi..." -ForegroundColor Yellow
-$dockerVersion = ssh "$PiUser@$PiHost" "docker --version 2>/dev/null || echo 'NOT_INSTALLED'"
+$dockerVersion = ssh "$PiUser@$PiHost" "sudo docker --version 2>/dev/null || echo 'NOT_INSTALLED'"
 
 if ($dockerVersion -match "NOT_INSTALLED" -or $dockerVersion -match "Docker version 1\." -or $dockerVersion -match "Docker version 2[0-3]\.") {
     Write-Host ""
@@ -83,7 +83,7 @@ Remove-Item $TempImageFile -Force
 
 # Step 5: Load image and run container on Pi
 Write-Host "[5/6] Loading image on Raspberry Pi..." -ForegroundColor Yellow
-ssh "$PiUser@$PiHost" "docker load -i /tmp/gekkolab-image.tar && rm /tmp/gekkolab-image.tar"
+ssh "$PiUser@$PiHost" "sudo docker load -i /tmp/gekkolab-image.tar && rm /tmp/gekkolab-image.tar"
 
 # Step 6: Stop old container and start new one
 Write-Host "[6/6] Starting container..." -ForegroundColor Yellow
@@ -92,10 +92,24 @@ Write-Host "[6/6] Starting container..." -ForegroundColor Yellow
 ssh "$PiUser@$PiHost" "mkdir -p ~/gekkolab-data"
 
 # Stop and remove existing container if any
-ssh "$PiUser@$PiHost" "docker stop $ContainerName 2>/dev/null; docker rm $ContainerName 2>/dev/null"
+ssh "$PiUser@$PiHost" "sudo docker stop $ContainerName 2>/dev/null; sudo docker rm $ContainerName 2>/dev/null"
 
 # Run new container
-ssh "$PiUser@$PiHost" "docker run -d --name $ContainerName --restart unless-stopped -p 5050:5050 -e ASPNETCORE_ENVIRONMENT=$Environment -v ~/gekkolab-data:/app/gekkodata $ImageName"
+ssh "$PiUser@$PiHost" "sudo docker run -d --name $ContainerName --restart unless-stopped -p 5050:5050 -e ASPNETCORE_ENVIRONMENT=$Environment -v ~/gekkolab-data:/app/gekkodata $ImageName"
+
+# Verify container is running
+Start-Sleep -Seconds 3
+Write-Host "Verifying container status..." -ForegroundColor Yellow
+$containerStatus = ssh "$PiUser@$PiHost" "sudo docker ps --filter 'name=$ContainerName' --format '{{.Status}}'"
+
+if ($containerStatus -match "Up") {
+    Write-Host "Container is running!" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: Container may not have started correctly!" -ForegroundColor Red
+    Write-Host "Container status: $containerStatus" -ForegroundColor Yellow
+    Write-Host "Checking logs..." -ForegroundColor Yellow
+    ssh "$PiUser@$PiHost" "sudo docker logs $ContainerName --tail 20"
+}
 
 Write-Host ""
 Write-Host "=========================================" -ForegroundColor Green
@@ -105,8 +119,8 @@ Write-Host ""
 Write-Host "Dashboard URL: http://${PiHost}:5050" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Useful commands:" -ForegroundColor Yellow
-Write-Host "  Check status:  ssh $PiUser@$PiHost 'docker ps'"
-Write-Host "  View logs:     ssh $PiUser@$PiHost 'docker logs -f $ContainerName'"
-Write-Host "  Restart:       ssh $PiUser@$PiHost 'docker restart $ContainerName'"
-Write-Host "  Stop:          ssh $PiUser@$PiHost 'docker stop $ContainerName'"
+Write-Host "  Check status:  ssh $PiUser@$PiHost 'sudo docker ps'"
+Write-Host "  View logs:     ssh $PiUser@$PiHost 'sudo docker logs -f $ContainerName'"
+Write-Host "  Restart:       ssh $PiUser@$PiHost 'sudo docker restart $ContainerName'"
+Write-Host "  Stop:          ssh $PiUser@$PiHost 'sudo docker stop $ContainerName'"
 Write-Host ""
