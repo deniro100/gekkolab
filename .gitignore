@@ -6,3 +6,7 @@ riderModule.iml
 
 # Database
 gekkodata/
+
+# Publish output
+publish/
+

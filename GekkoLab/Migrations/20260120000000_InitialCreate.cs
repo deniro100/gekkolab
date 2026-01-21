@@ -23,7 +23,7 @@ namespace GekkoLab.Migrations
                     Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
                     IsValid = table.Column<bool>(type: "INTEGER", nullable: false),
                     ErrorMessage = table.Column<string>(type: "TEXT", nullable: true),
-                    Metadata_ReaderType = table.Column<string>(type: "TEXT", nullable: true)
+                    Metadata_ReaderType = table.Column<string>(type: "TEXT", nullable: true, defaultValue: "unknown")
                 },
                 constraints: table =>
                 {

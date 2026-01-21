@@ -126,14 +126,19 @@
                             x: {
                                 type: 'time',
                                 time: {
+                                    unit: 'hour',
                                     displayFormats: {
-                                        hour: 'HH:mm',
-                                        minute: 'HH:mm'
-                                    }
+                                        hour: 'HH:mm'
+                                    },
+                                    tooltipFormat: 'MMM d, HH:mm'
+                                },
+                                ticks: {
+                                    maxRotation: 0,
+                                    autoSkip: true,
+                                    maxTicksLimit: 12
                                 },
                                 title: {
-                                    display: true,
-                                    text: 'Time'
+                                    display: false
                                 }
                             },
                             y: {

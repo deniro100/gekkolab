@@ -41,7 +41,19 @@ namespace GekkoLab.Services;
                 using var scope = _scopeFactory.CreateScope();
                 var repository = scope.ServiceProvider.GetRequiredService<ISensorReadingRepository>();
 
-                var data = await this._sensorReader.ReadSensorDataAsync();
+                var dataTask = _sensorReader.ReadSensorDataAsync();
+                if (dataTask == null)
+                {
+                    _logger.LogWarning("Sensor reader returned null task. Sensor may not be available. Reader type: {ReaderType}", _sensorReader.GetType().Name);
+                    return;
+                }
+
+                var data = await dataTask;
+                if (data == null)
+                {
+                    _logger.LogError("Sensor data is null. Sensor may not be responding.");
+                    return;
+                }
                 
                 var reading = new SensorReading
                 {

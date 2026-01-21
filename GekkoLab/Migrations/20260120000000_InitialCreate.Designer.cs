@@ -59,7 +59,8 @@ namespace GekkoLab.Migrations
                                 .HasColumnType("INTEGER");
 
                             b1.Property<string>("ReaderType")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("TEXT")
+                                .HasDefaultValue("unknown");
 
                             b1.HasKey("SensorReadingId");
 
