@@ -129,7 +129,7 @@ public class RaspberryPiCameraCapture : ICameraCapture
                 return false;
             }
 
-            process.WaitForExit(5000);
+            process.WaitForExit(TimeSpan.FromSeconds(5));
             var output = process.StandardOutput.ReadToEnd().Trim();
             var error = process.StandardError.ReadToEnd().Trim();
 
