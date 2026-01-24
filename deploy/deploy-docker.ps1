@@ -106,11 +106,26 @@ Write-Host "Transfer complete." -ForegroundColor Green
 Write-Host "[5/5] Deploying on Raspberry Pi..." -ForegroundColor Yellow
 Write-Host "  (Enter password when prompted)" -ForegroundColor Gray
 
-# All remote commands in one SSH call - kill host process, cleanup Docker, then start
-ssh $SshTarget "sudo pkill -f GekkoLab 2>/dev/null || true; sudo systemctl stop gekkolab 2>/dev/null || true; sudo docker stop $ContainerName 2>/dev/null || true; sudo docker rm -f $ContainerName 2>/dev/null || true; sudo docker container prune -f 2>/dev/null || true; sleep 2; sudo docker load -i /tmp/gekkolab-image.tar; rm /tmp/gekkolab-image.tar; mkdir -p ~/gekkolab-data; sudo docker run -d --name $ContainerName --restart unless-stopped -p 5050:5050 -e ASPNETCORE_ENVIRONMENT=$Environment -v ~/gekkolab-data:/app/gekkodata $ImageName"
+Write-Host "  Stopping old processes..." -ForegroundColor Gray
+ssh $SshTarget "sudo pkill -f GekkoLab 2>/dev/null; sudo systemctl stop gekkolab 2>/dev/null; sudo docker stop gekkolab 2>/dev/null; sudo docker rm -f gekkolab 2>/dev/null; echo 'Cleanup done'"
+
+Write-Host "  Removing old image..." -ForegroundColor Gray
+ssh $SshTarget "sudo docker rmi gekkolab:latest 2>/dev/null; echo 'Old image removed'"
+
+Write-Host "  Loading new image..." -ForegroundColor Gray
+ssh $SshTarget "sudo docker load -i /tmp/gekkolab-image.tar && echo 'Image loaded successfully' || echo 'FAILED to load image'"
+
+Write-Host "  Cleaning up..." -ForegroundColor Gray
+ssh $SshTarget "rm -f /tmp/gekkolab-image.tar; mkdir -p ~/gekkolab-data; echo 'Cleanup done'"
+
+Write-Host "  Starting container..." -ForegroundColor Gray
+# Mount rpicam-still from host, camera devices, and required library paths
+ssh $SshTarget "sudo docker run -d --name gekkolab --restart unless-stopped -p 5050:5050 -e ASPNETCORE_ENVIRONMENT=$Environment --privileged -v /usr/bin/rpicam-still:/usr/bin/rpicam-still:ro -v /usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu:ro -v /opt/vc:/opt/vc:ro -v ~/gekkolab-data:/app/gekkodata gekkolab:latest"
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Deployment may have had issues. Checking status..." -ForegroundColor Yellow
+    Write-Host "Container start failed!" -ForegroundColor Red
+    Write-Host "Checking Docker logs..." -ForegroundColor Yellow
+    ssh $SshTarget "sudo docker logs gekkolab 2>&1 | tail -30"
 }
 
 # Verify container is running

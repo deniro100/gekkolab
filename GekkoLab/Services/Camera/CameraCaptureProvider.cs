@@ -17,6 +17,8 @@ public class CameraCaptureProvider : ICameraCaptureProvider
             var logger = loggerFactory.CreateLogger<CameraCaptureProvider>();
             var useSimulator = configuration.GetValue<bool>("CameraConfiguration:UseSimulator", false);
 
+            logger.LogInformation("CameraCaptureProvider initializing. UseSimulator={UseSimulator}", useSimulator);
+
             if (useSimulator)
             {
                 logger.LogInformation("Using Camera Simulator");
@@ -28,12 +30,16 @@ public class CameraCaptureProvider : ICameraCaptureProvider
                 var height = configuration.GetValue<int>("CameraConfiguration:Height", 720);
                 var quality = configuration.GetValue<int>("CameraConfiguration:Quality", 85);
 
-                logger.LogInformation("Using Raspberry Pi Camera (libcamera) - {Width}x{Height}, Quality: {Quality}", 
+                logger.LogInformation("Using Raspberry Pi Camera (rpicam-still) - {Width}x{Height}, Quality: {Quality}", 
                     width, height, quality);
                 
-                return new RaspberryPiCameraCapture(
+                var capture = new RaspberryPiCameraCapture(
                     loggerFactory.CreateLogger<RaspberryPiCameraCapture>(),
                     width, height, quality);
+                
+                logger.LogInformation("RaspberryPiCameraCapture created. IsAvailable={IsAvailable}", capture.IsAvailable);
+                
+                return capture;
             }
         });
     }

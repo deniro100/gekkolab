@@ -27,19 +27,22 @@ public class MotionController : ControllerBase
         {
             if (!Directory.Exists(_captureDirectory))
             {
+                _logger.LogWarning("Capture directory does not exist: {Directory}", _captureDirectory);
                 return NotFound(new { message = "No captures directory found" });
             }
 
             var latestFile = new DirectoryInfo(_captureDirectory)
                 .GetFiles("motion_*.jpg")
-                .OrderByDescending(f => f.CreationTimeUtc)
+                .OrderByDescending(f => f.LastWriteTimeUtc)
                 .FirstOrDefault();
 
             if (latestFile == null)
             {
+                _logger.LogWarning("No motion capture files found in: {Directory}", _captureDirectory);
                 return NotFound(new { message = "No motion captures found" });
             }
 
+            _logger.LogDebug("Returning latest capture: {File}", latestFile.Name);
             var imageBytes = System.IO.File.ReadAllBytes(latestFile.FullName);
             return File(imageBytes, "image/jpeg");
         }
@@ -92,17 +95,17 @@ public class MotionController : ControllerBase
 
             var now = DateTime.UtcNow;
             var totalSize = files.Sum(f => f.Length);
-            var orderedFiles = files.OrderBy(f => f.CreationTimeUtc).ToList();
+            var orderedFiles = files.OrderBy(f => f.LastWriteTimeUtc).ToList();
 
             return Ok(new
             {
                 totalFiles = files.Count,
                 totalSizeBytes = totalSize,
                 totalSizeMB = Math.Round(totalSize / (1024.0 * 1024.0), 2),
-                oldestCapture = orderedFiles.First().CreationTimeUtc,
-                newestCapture = orderedFiles.Last().CreationTimeUtc,
-                capturesLast24Hours = files.Count(f => f.CreationTimeUtc >= now.AddHours(-24)),
-                capturesLastHour = files.Count(f => f.CreationTimeUtc >= now.AddHours(-1))
+                oldestCapture = orderedFiles.First().LastWriteTimeUtc,
+                newestCapture = orderedFiles.Last().LastWriteTimeUtc,
+                capturesLast24Hours = files.Count(f => f.LastWriteTimeUtc >= now.AddHours(-24)),
+                capturesLastHour = files.Count(f => f.LastWriteTimeUtc >= now.AddHours(-1))
             });
         }
         catch (Exception ex)
@@ -127,7 +130,7 @@ public class MotionController : ControllerBase
 
             var latestFile = new DirectoryInfo(_captureDirectory)
                 .GetFiles("motion_*.jpg")
-                .OrderByDescending(f => f.CreationTimeUtc)
+                .OrderByDescending(f => f.LastWriteTimeUtc)
                 .FirstOrDefault();
 
             if (latestFile == null)
@@ -138,7 +141,7 @@ public class MotionController : ControllerBase
             return Ok(new
             {
                 filename = latestFile.Name,
-                timestamp = latestFile.CreationTimeUtc,
+                timestamp = latestFile.LastWriteTimeUtc,
                 sizeBytes = latestFile.Length,
                 sizeMB = Math.Round(latestFile.Length / (1024.0 * 1024.0), 3)
             });
@@ -165,12 +168,12 @@ public class MotionController : ControllerBase
 
             var files = new DirectoryInfo(_captureDirectory)
                 .GetFiles("motion_*.jpg")
-                .OrderByDescending(f => f.CreationTimeUtc)
+                .OrderByDescending(f => f.LastWriteTimeUtc)
                 .Take(count)
                 .Select(f => new
                 {
                     filename = f.Name,
-                    timestamp = f.CreationTimeUtc,
+                    timestamp = f.LastWriteTimeUtc,
                     sizeBytes = f.Length
                 })
                 .ToList();

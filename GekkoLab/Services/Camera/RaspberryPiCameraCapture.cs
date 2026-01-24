@@ -108,6 +108,8 @@ public class RaspberryPiCameraCapture : ICameraCapture
 
     private bool CheckCameraAvailability()
     {
+        _logger.LogInformation("Checking camera availability for command: {Command}", CameraCommand);
+        
         try
         {
             var processInfo = new ProcessStartInfo
@@ -115,28 +117,37 @@ public class RaspberryPiCameraCapture : ICameraCapture
                 FileName = "which",
                 Arguments = CameraCommand,
                 RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
 
             using var process = Process.Start(processInfo);
-            if (process == null) return false;
-
-            process.WaitForExit(5000);
-            var output = process.StandardOutput.ReadToEnd();
-
-            if (string.IsNullOrWhiteSpace(output))
+            if (process == null)
             {
-                _logger.LogWarning("{Command} not found. Camera support unavailable.", CameraCommand);
+                _logger.LogWarning("Failed to start 'which' process");
                 return false;
             }
 
-            _logger.LogInformation("Camera support available via {Command}", CameraCommand);
+            process.WaitForExit(5000);
+            var output = process.StandardOutput.ReadToEnd().Trim();
+            var error = process.StandardError.ReadToEnd().Trim();
+
+            _logger.LogInformation("'which {Command}' exit code: {ExitCode}, output: '{Output}', error: '{Error}'", 
+                CameraCommand, process.ExitCode, output, error);
+
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                _logger.LogWarning("{Command} not found. Camera support unavailable. Make sure rpicam-apps is installed.", CameraCommand);
+                return false;
+            }
+
+            _logger.LogInformation("Camera support available via {Command} at {Path}", CameraCommand, output);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not check camera availability");
+            _logger.LogError(ex, "Could not check camera availability");
             return false;
         }
     }

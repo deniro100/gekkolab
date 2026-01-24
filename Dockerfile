@@ -17,8 +17,9 @@ WORKDIR /src/GekkoLab
 RUN dotnet publish -c Release -o /app/publish
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim AS runtime
 WORKDIR /app
+
 
 # Create data directory for SQLite database
 RUN mkdir -p /app/gekkodata

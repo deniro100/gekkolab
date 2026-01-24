@@ -29,12 +29,17 @@ public class MotionDetectionService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Motion detection service initializing...");
+        
         var enabled = _configuration.GetValue<bool>("CameraConfiguration:MotionDetection:Enabled", true);
         if (!enabled)
         {
             _logger.LogInformation("Motion detection is disabled via configuration");
             return;
         }
+
+        var useSimulator = _configuration.GetValue<bool>("CameraConfiguration:UseSimulator", false);
+        _logger.LogInformation("Camera configuration: UseSimulator={UseSimulator}", useSimulator);
 
         // Get configuration
         var pollingInterval = _configuration.GetValue<TimeSpan>("CameraConfiguration:MotionDetection:PollingInterval", TimeSpan.FromSeconds(1));
@@ -52,11 +57,15 @@ public class MotionDetectionService : BackgroundService
             "Motion detection service started. Polling: {Polling}, Min capture interval: {MinCapture}, Sensitivity: {Sensitivity:P0}, Directory: {Directory}",
             pollingInterval, minCaptureInterval, sensitivity, _captureDirectory);
 
+        _logger.LogInformation("Camera IsAvailable: {IsAvailable}", _camera.IsAvailable);
+        
         if (!_camera.IsAvailable)
         {
-            _logger.LogWarning("Camera is not available. Motion detection will not work.");
+            _logger.LogWarning("Camera is not available. Motion detection will not work. Check if rpicam-still is installed and camera is connected.");
             return;
         }
+
+        _logger.LogInformation("Camera is available. Starting motion detection loop...");
 
         while (!stoppingToken.IsCancellationRequested)
         {
