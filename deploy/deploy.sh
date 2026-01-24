@@ -1,4 +1,4 @@
-﻿﻿#!/bin/bash
+﻿#!/bin/bash
 # GekkoLab Deployment Script for Raspberry Pi
 # Usage: ./deploy.sh <pi-hostname-or-ip> <username>
 # Example: ./deploy.sh 192.168.1.100 pi
