@@ -21,6 +21,7 @@ builder.Services.AddDbContext<GekkoLabDbContext>(options =>
 builder.Services.AddScoped<ISensorReadingRepository, SensorReadingRepository>();
 builder.Services.AddScoped<IWeatherReadingRepository, WeatherReadingRepository>();
 builder.Services.AddScoped<IGekkoDetectionRepository, GekkoDetectionRepository>();
+builder.Services.AddScoped<IGekkoSightingRepository, GekkoSightingRepository>();
 
 // Register sensor reader
 // Register sensor reader provider and resolve IBme280Reader from it

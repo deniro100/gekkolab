@@ -1,4 +1,5 @@
-﻿using GekkoLab.Services.Repository;
+﻿using GekkoLab.Models;
+using GekkoLab.Services.Repository;
 
 namespace GekkoLab.Services.GekkoDetector;
 
@@ -121,15 +122,33 @@ public class GekkoDetectorService : BackgroundService
         var imageData = await File.ReadAllBytesAsync(file.FullName);
         var result = await _detector.DetectAsync(imageData, file.FullName);
 
-        // Save to database
         using var scope = _scopeFactory.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<IGekkoDetectionRepository>();
-        await repository.SaveAsync(result);
+        
+        // Save detection result (all detections)
+        var detectionRepository = scope.ServiceProvider.GetRequiredService<IGekkoDetectionRepository>();
+        await detectionRepository.SaveAsync(result);
 
+        // If gecko is detected, save a separate sighting record
         if (result.GekkoDetected)
         {
-            _logger.LogInformation("🦎 GECKO DETECTED in {File}! Confidence: {Confidence:P2}",
-                file.Name, result.Confidence);
+            var sightingRepository = scope.ServiceProvider.GetRequiredService<IGekkoSightingRepository>();
+            
+            var sighting = new GekkoSighting
+            {
+                Timestamp = result.Timestamp,
+                ImagePath = result.ImagePath,
+                Confidence = result.Confidence,
+                Label = result.Label,
+                PositionX = result.BoundingBoxX,
+                PositionY = result.BoundingBoxY,
+                Width = result.BoundingBoxWidth,
+                Height = result.BoundingBoxHeight
+            };
+            
+            await sightingRepository.SaveAsync(sighting);
+
+            _logger.LogInformation("🦎 GECKO DETECTED in {File}! Confidence: {Confidence:P2}, Position: ({X},{Y})",
+                file.Name, result.Confidence, result.BoundingBoxX, result.BoundingBoxY);
         }
         else
         {
