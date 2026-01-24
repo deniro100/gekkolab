@@ -1,4 +1,4 @@
-﻿namespace GekkoLab.Models;
+﻿﻿namespace GekkoLab.Models;
 
 using Microsoft.EntityFrameworkCore;
 public class GekkoLabDbContext : DbContext
@@ -9,6 +9,7 @@ public class GekkoLabDbContext : DbContext
     }
 
     public DbSet<SensorReading> SensorReadings { get; set; }
+    public DbSet<SystemMetrics> SystemMetrics { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,6 +25,15 @@ public class GekkoLabDbContext : DbContext
                 metadata.Property(m => m.ReaderType)
                     .HasDefaultValue("unknown");
             });
+        });
+
+        modelBuilder.Entity<SystemMetrics>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.Property(e => e.CpuUsagePercent).IsRequired();
+            entity.Property(e => e.MemoryUsagePercent).IsRequired();
+            entity.Property(e => e.DiskUsagePercent).IsRequired();
         });
     }
 }

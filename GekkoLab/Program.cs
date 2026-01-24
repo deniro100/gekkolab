@@ -1,6 +1,8 @@
 using GekkoLab.Models;
 using GekkoLab.Services;
 using GekkoLab.Services.Bme280Reader;
+using GekkoLab.Services.Camera;
+using GekkoLab.Services.PerformanceMonitoring;
 using GekkoLab.Services.Repository;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,9 +24,19 @@ builder.Services.AddSingleton<IBme280SensorReaderProvider, Bme280SensorReaderPro
 builder.Services.AddSingleton<IBme280Reader>(sp => 
     sp.GetRequiredService<IBme280SensorReaderProvider>().GetReader());
 
+// Register camera services
+builder.Services.AddSingleton<ICameraCaptureProvider, CameraCaptureProvider>();
+builder.Services.AddSingleton<IMotionDetector, SimpleMotionDetector>();
+
+// Register performance monitoring services
+builder.Services.AddSingleton<IMetricsStore, InMemoryMetricsStore>();
+builder.Services.AddSingleton<ISystemMetricsCollectorProvider, SystemMetricsCollectorProvider>();
+builder.Services.AddScoped<ISystemMetricsRepository, SystemMetricsRepository>();
 
 // Register background services
 builder.Services.AddHostedService<SensorPollingService>();
+builder.Services.AddHostedService<MotionDetectionService>();
+builder.Services.AddHostedService<PerformanceMonitoringService>();
 
 var app = builder.Build();
 
