@@ -3,6 +3,7 @@ using System;
 using GekkoLab.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GekkoLab.Migrations
 {
     [DbContext(typeof(GekkoLabDbContext))]
-    partial class GekkoLabDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260124000000_AddWeatherReadings")]
+    partial class AddWeatherReadings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");

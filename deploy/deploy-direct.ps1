@@ -28,7 +28,7 @@ Write-Host "Environment: $Environment"
 Write-Host ""
 
 # Step 1: Build locally for linux-arm64 (self-contained)
-Write-Host "[1/4] Building for linux-arm64 (self-contained)..." -ForegroundColor Yellow
+Write-Host "[1/3] Building for linux-arm64 (self-contained)..." -ForegroundColor Yellow
 Push-Location "$ProjectDir\GekkoLab"
 
 dotnet publish -c Release -r linux-arm64 --self-contained true -o "$ProjectDir\publish-arm64"
@@ -43,7 +43,7 @@ if ($buildResult -ne 0) {
 Write-Host "Build successful." -ForegroundColor Green
 
 # Step 2: Create archive
-Write-Host "[2/4] Creating deployment archive..." -ForegroundColor Yellow
+Write-Host "[2/3] Creating deployment archive..." -ForegroundColor Yellow
 $ArchivePath = "$env:TEMP\gekkolab-deploy.tar.gz"
 if (Test-Path $ArchivePath) { Remove-Item -Force $ArchivePath }
 
@@ -54,8 +54,10 @@ Pop-Location
 $archiveSize = [math]::Round((Get-Item $ArchivePath).Length / 1MB, 2)
 Write-Host "Archive created: $archiveSize MB" -ForegroundColor Green
 
-# Step 3: Transfer to Pi
-Write-Host "[3/4] Transferring to Raspberry Pi..." -ForegroundColor Yellow
+# Step 3: Transfer and deploy
+Write-Host "[3/3] Transferring and deploying to Raspberry Pi..." -ForegroundColor Yellow
+Write-Host "  (You will be prompted for password twice: once for transfer, once for deploy)" -ForegroundColor Gray
+
 scp $ArchivePath "${SshTarget}:/tmp/gekkolab-deploy.tar.gz"
 
 if ($LASTEXITCODE -ne 0) {
@@ -66,34 +68,15 @@ if ($LASTEXITCODE -ne 0) {
 Remove-Item -Force $ArchivePath
 Write-Host "Transfer complete." -ForegroundColor Green
 
-# Step 4: Deploy on Pi
-Write-Host "[4/4] Deploying on Raspberry Pi..." -ForegroundColor Yellow
+# Deploy with a single SSH command (all on one line to avoid line ending issues)
+Write-Host "Deploying..." -ForegroundColor Gray
 
-# Stop existing service, extract, start
-ssh $SshTarget "sudo systemctl stop gekkolab 2>/dev/null; mkdir -p $RemoteAppDir; cd $RemoteAppDir; rm -rf ./*; tar -xzf /tmp/gekkolab-deploy.tar.gz; rm /tmp/gekkolab-deploy.tar.gz; mkdir -p gekkodata; chmod +x GekkoLab"
+$deployCmd = "sudo systemctl stop gekkolab 2>/dev/null; mkdir -p $RemoteAppDir; cd $RemoteAppDir; rm -rf ./*; tar -xzf /tmp/gekkolab-deploy.tar.gz; rm /tmp/gekkolab-deploy.tar.gz; mkdir -p gekkodata; chmod +x GekkoLab"
+ssh $SshTarget $deployCmd
 
-# Create systemd service - run the self-contained executable directly
-$serviceContent = @"
-[Unit]
-Description=GekkoLab Sensor Dashboard
-After=network.target
-
-[Service]
-Type=simple
-User=$PiUser
-WorkingDirectory=$RemoteAppDir
-ExecStart=$RemoteAppDir/GekkoLab
-Restart=always
-RestartSec=10
-Environment=ASPNETCORE_ENVIRONMENT=$Environment
-Environment=ASPNETCORE_URLS=http://*:5050
-
-[Install]
-WantedBy=multi-user.target
-"@
-
-# Write service file
-$serviceContent | ssh $SshTarget "sudo tee /etc/systemd/system/gekkolab.service > /dev/null"
+# Create and write service file
+$serviceFile = "[Unit]`nDescription=GekkoLab Sensor Dashboard`nAfter=network.target`n`n[Service]`nType=simple`nUser=$PiUser`nWorkingDirectory=$RemoteAppDir`nExecStart=$RemoteAppDir/GekkoLab`nRestart=always`nRestartSec=10`nEnvironment=ASPNETCORE_ENVIRONMENT=$Environment`nEnvironment=ASPNETCORE_URLS=http://*:5050`n`n[Install]`nWantedBy=multi-user.target"
+ssh $SshTarget "echo -e '$serviceFile' | sudo tee /etc/systemd/system/gekkolab.service > /dev/null"
 
 # Start service
 ssh $SshTarget "sudo systemctl daemon-reload; sudo systemctl enable gekkolab; sudo systemctl start gekkolab"
@@ -111,8 +94,9 @@ if ($status -eq "active") {
     Write-Host "Dashboard URL: http://${PiHost}:5050" -ForegroundColor Cyan
 } else {
     Write-Host "WARNING: Service may not have started correctly!" -ForegroundColor Red
+    Write-Host "Status: $status" -ForegroundColor Yellow
     Write-Host "Checking logs..." -ForegroundColor Yellow
-    ssh $SshTarget "sudo journalctl -u gekkolab --no-pager -n 30"
+    ssh $SshTarget "sudo journalctl -u gekkolab --no-pager -n 20"
 }
 
 Write-Host ""
