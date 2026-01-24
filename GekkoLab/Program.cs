@@ -2,6 +2,7 @@ using GekkoLab.Models;
 using GekkoLab.Services;
 using GekkoLab.Services.Bme280Reader;
 using GekkoLab.Services.Camera;
+using GekkoLab.Services.GekkoDetector;
 using GekkoLab.Services.PerformanceMonitoring;
 using GekkoLab.Services.Repository;
 using GekkoLab.Services.WeatherReader;
@@ -19,6 +20,7 @@ builder.Services.AddDbContext<GekkoLabDbContext>(options =>
 // Register repositories
 builder.Services.AddScoped<ISensorReadingRepository, SensorReadingRepository>();
 builder.Services.AddScoped<IWeatherReadingRepository, WeatherReadingRepository>();
+builder.Services.AddScoped<IGekkoDetectionRepository, GekkoDetectionRepository>();
 
 // Register sensor reader
 // Register sensor reader provider and resolve IBme280Reader from it
@@ -33,6 +35,9 @@ builder.Services.AddSingleton<IMotionDetector, SimpleMotionDetector>();
 // Register weather reader
 builder.Services.AddSingleton<IWeatherReader, OpenMeteoWeatherReader>();
 
+// Register gecko detector services
+builder.Services.AddSingleton<IGekkoDetectorProvider, GekkoDetectorProvider>();
+
 // Register performance monitoring services
 builder.Services.AddSingleton<IMetricsStore, InMemoryMetricsStore>();
 builder.Services.AddSingleton<ISystemMetricsCollectorProvider, SystemMetricsCollectorProvider>();
@@ -43,6 +48,7 @@ builder.Services.AddHostedService<SensorPollingService>();
 builder.Services.AddHostedService<MotionDetectionService>();
 builder.Services.AddHostedService<PerformanceMonitoringService>();
 builder.Services.AddHostedService<WeatherPollingService>();
+builder.Services.AddHostedService<GekkoDetectorService>();
 
 var app = builder.Build();
 

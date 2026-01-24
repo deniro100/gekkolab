@@ -11,6 +11,7 @@ public class GekkoLabDbContext : DbContext
     public DbSet<SensorReading> SensorReadings { get; set; }
     public DbSet<SystemMetrics> SystemMetrics { get; set; }
     public DbSet<WeatherReading> WeatherReadings { get; set; }
+    public DbSet<GekkoDetectionResult> GekkoDetections { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +46,16 @@ public class GekkoLabDbContext : DbContext
             entity.Property(e => e.Humidity).IsRequired();
             entity.Property(e => e.Location).HasMaxLength(100);
             entity.Property(e => e.Source).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<GekkoDetectionResult>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.GekkoDetected);
+            entity.Property(e => e.ImagePath).HasMaxLength(500);
+            entity.Property(e => e.Label).HasMaxLength(100);
+            entity.Property(e => e.Confidence).IsRequired();
         });
     }
 }
