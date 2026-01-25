@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿﻿using Microsoft.AspNetCore.Mvc;
 
 namespace GekkoLab.Controllers;
 
@@ -184,6 +184,42 @@ public class MotionController : ControllerBase
         {
             _logger.LogError(ex, "Error getting recent captures");
             return StatusCode(500, new { message = "Error retrieving captures" });
+        }
+    }
+
+    /// <summary>
+    /// Get a specific capture by filename
+    /// </summary>
+    [HttpGet("capture/{filename}")]
+    public IActionResult GetCaptureByFilename(string filename)
+    {
+        try
+        {
+            if (!Directory.Exists(_captureDirectory))
+            {
+                return NotFound(new { message = "No captures directory found" });
+            }
+
+            // Sanitize filename to prevent directory traversal
+            var sanitizedFilename = Path.GetFileName(filename);
+            if (string.IsNullOrEmpty(sanitizedFilename) || !sanitizedFilename.StartsWith("motion_") || !sanitizedFilename.EndsWith(".jpg"))
+            {
+                return BadRequest(new { message = "Invalid filename" });
+            }
+
+            var filePath = Path.Combine(_captureDirectory, sanitizedFilename);
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound(new { message = "Capture not found" });
+            }
+
+            var imageBytes = System.IO.File.ReadAllBytes(filePath);
+            return File(imageBytes, "image/jpeg");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting capture by filename: {Filename}", filename);
+            return StatusCode(500, new { message = "Error retrieving capture" });
         }
     }
 }

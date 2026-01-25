@@ -50,13 +50,22 @@
 <div class="section-title">Motion Detection</div>
 <div class="motion-container">
     <div class="motion-image-wrapper">
-        <div class="chart-title">Latest Motion Capture</div>
-        <div id="motionImageContainer">
+        <div class="chart-title">Latest Capture</div>
+        <div id="motionImageContainer1">
             <div class="no-image">Loading...</div>
         </div>
-        <div class="timestamp" id="motionTimestamp"></div>
+        <div class="timestamp" id="motionTimestamp1"></div>
     </div>
-    <div class="motion-stats">
+    <div class="motion-image-wrapper">
+        <div class="chart-title">Previous Capture</div>
+        <div id="motionImageContainer2">
+            <div class="no-image">Loading...</div>
+        </div>
+        <div class="timestamp" id="motionTimestamp2"></div>
+    </div>
+</div>
+<div class="motion-container">
+    <div class="motion-stats" style="grid-column: span 2;">
         <div class="chart-title">Capture Statistics</div>
         <div class="motion-stats-grid">
             <div class="motion-stat">
@@ -108,21 +117,43 @@
     // ============ Motion Detection Functions ============
     async function fetchMotionLatest() {
         try {
-            const infoResponse = await fetch('/api/motion/latest/info');
-            if (!infoResponse.ok) {
-                document.getElementById('motionImageContainer').innerHTML = '<div class="no-image">No motion captures available</div>';
-                document.getElementById('motionTimestamp').textContent = '';
+            const response = await fetch('/api/motion/recent?count=2');
+            if (!response.ok) {
+                setNoCapture(1);
+                setNoCapture(2);
                 return;
             }
-            const info = await infoResponse.json();
+            const captures = await response.json();
             
-            const imageUrl = `/api/motion/latest?t=${new Date(info.timestamp).getTime()}`;
-            document.getElementById('motionImageContainer').innerHTML = `<img src="${imageUrl}" alt="Latest motion capture" class="motion-image" />`;
-            document.getElementById('motionTimestamp').textContent = `Captured: ${new Date(info.timestamp).toLocaleString()}`;
+            // Display latest capture (index 0)
+            if (captures.length >= 1) {
+                const capture1 = captures[0];
+                const imageUrl1 = `/api/motion/capture/${capture1.filename}?t=${new Date(capture1.timestamp).getTime()}`;
+                document.getElementById('motionImageContainer1').innerHTML = `<img src="${imageUrl1}" alt="Latest motion capture" class="motion-image" />`;
+                document.getElementById('motionTimestamp1').textContent = `Captured: ${new Date(capture1.timestamp).toLocaleString()}`;
+            } else {
+                setNoCapture(1);
+            }
+            
+            // Display previous capture (index 1)
+            if (captures.length >= 2) {
+                const capture2 = captures[1];
+                const imageUrl2 = `/api/motion/capture/${capture2.filename}?t=${new Date(capture2.timestamp).getTime()}`;
+                document.getElementById('motionImageContainer2').innerHTML = `<img src="${imageUrl2}" alt="Previous motion capture" class="motion-image" />`;
+                document.getElementById('motionTimestamp2').textContent = `Captured: ${new Date(capture2.timestamp).toLocaleString()}`;
+            } else {
+                setNoCapture(2);
+            }
         } catch (err) {
-            document.getElementById('motionImageContainer').innerHTML = '<div class="no-image">No motion captures available</div>';
-            document.getElementById('motionTimestamp').textContent = '';
+            console.error('Error fetching motion captures:', err);
+            setNoCapture(1);
+            setNoCapture(2);
         }
+    }
+    
+    function setNoCapture(index) {
+        document.getElementById(`motionImageContainer${index}`).innerHTML = '<div class="no-image">No capture available</div>';
+        document.getElementById(`motionTimestamp${index}`).textContent = '';
     }
 
     async function fetchMotionStatistics() {

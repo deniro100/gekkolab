@@ -67,7 +67,8 @@ namespace GekkoLab.Services;
                 };
 
                 await repository.SaveReadingAsync(reading);
-                _logger.LogInformation($"Sensor data saved: T={reading.Temperature}°C, H={reading.Humidity}%, P={reading.Pressure}mm");
+                _logger.LogInformation("Sensor data saved: T={Temperature}°C, H={Humidity}%, P={Pressure}mm", 
+                    reading.Temperature, reading.Humidity, reading.Pressure);
             }
             catch (Exception ex)
             {

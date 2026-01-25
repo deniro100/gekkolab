@@ -1,12 +1,20 @@
-﻿namespace GekkoLab.Services.Camera;
+﻿using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
+
+namespace GekkoLab.Services.Camera;
 
 /// <summary>
-/// Simple motion detector that compares byte differences between frames
-/// For production use, consider using a more sophisticated algorithm
+/// Motion detector that compares actual pixel data between decoded frames.
+/// Decodes JPEG images to avoid false positives from compression artifacts.
 /// </summary>
 public class SimpleMotionDetector : IMotionDetector
 {
     private readonly ILogger<SimpleMotionDetector> _logger;
+    
+    // Downscale images for faster comparison
+    private const int ComparisonWidth = 160;
+    private const int ComparisonHeight = 120;
 
     public SimpleMotionDetector(ILogger<SimpleMotionDetector> logger)
     {
@@ -35,42 +43,59 @@ public class SimpleMotionDetector : IMotionDetector
             return false;
         }
 
-        // Compare frames by sampling bytes (for performance)
-        // We don't need to compare every byte - sampling is sufficient for motion detection
-        var sampleSize = Math.Min(previousFrame.Length, currentFrame.Length);
-        var sampleStep = Math.Max(1, sampleSize / 10000); // Sample up to ~10000 points
-        
-        long totalDifference = 0;
-        int sampledPoints = 0;
-
-        for (int i = 0; i < sampleSize; i += sampleStep)
+        try
         {
-            var diff = Math.Abs(previousFrame[i] - currentFrame[i]);
-            totalDifference += diff;
-            sampledPoints++;
+            // Decode JPEG images to pixel data
+            using var prevImage = Image.Load<Rgb24>(previousFrame);
+            using var currImage = Image.Load<Rgb24>(currentFrame);
+
+            // Resize to smaller size for faster comparison
+            prevImage.Mutate(x => x.Resize(ComparisonWidth, ComparisonHeight));
+            currImage.Mutate(x => x.Resize(ComparisonWidth, ComparisonHeight));
+
+            // Compare pixel data
+            long totalDifference = 0;
+            int totalPixels = ComparisonWidth * ComparisonHeight;
+
+            for (int y = 0; y < ComparisonHeight; y++)
+            {
+                for (int x = 0; x < ComparisonWidth; x++)
+                {
+                    var prevPixel = prevImage[x, y];
+                    var currPixel = currImage[x, y];
+
+                    // Calculate difference for each color channel
+                    var diffR = Math.Abs(prevPixel.R - currPixel.R);
+                    var diffG = Math.Abs(prevPixel.G - currPixel.G);
+                    var diffB = Math.Abs(prevPixel.B - currPixel.B);
+
+                    // Average difference across channels
+                    totalDifference += (diffR + diffG + diffB) / 3;
+                }
+            }
+
+            // Calculate average difference as a percentage of max possible difference (255)
+            var averageDifference = (double)totalDifference / totalPixels / 255.0;
+
+            var motionDetected = averageDifference > Sensitivity;
+
+            if (motionDetected)
+            {
+                _logger.LogDebug("Motion detected! Average difference: {Diff:P2} (threshold: {Threshold:P2})",
+                    averageDifference, Sensitivity);
+            }
+            else
+            {
+                _logger.LogTrace("No motion. Average difference: {Diff:P2} (threshold: {Threshold:P2})",
+                    averageDifference, Sensitivity);
+            }
+
+            return motionDetected;
         }
-
-        if (sampledPoints == 0)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error comparing frames for motion detection");
             return false;
         }
-
-        // Calculate average difference as a percentage of max possible difference (255)
-        var averageDifference = (double)totalDifference / sampledPoints / 255.0;
-
-        var motionDetected = averageDifference > Sensitivity;
-
-        if (motionDetected)
-        {
-            _logger.LogDebug("Motion detected! Average difference: {Diff:P2} (threshold: {Threshold:P2})", 
-                averageDifference, Sensitivity);
-        }
-        else
-        {
-            _logger.LogTrace("No motion. Average difference: {Diff:P2} (threshold: {Threshold:P2})", 
-                averageDifference, Sensitivity);
-        }
-
-        return motionDetected;
     }
 }
