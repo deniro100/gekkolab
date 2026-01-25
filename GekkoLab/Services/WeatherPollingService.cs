@@ -14,7 +14,9 @@ public class WeatherPollingService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IWeatherReader _weatherReader;
     private readonly TimeSpan _pollingInterval;
+    private readonly  IConfiguration _configuration;
     private readonly string _location;
+    private readonly bool _enabled;
 
     public WeatherPollingService(
         ILogger<WeatherPollingService> logger,
@@ -25,20 +27,34 @@ public class WeatherPollingService : BackgroundService
         _logger = logger;
         _scopeFactory = scopeFactory;
         _weatherReader = weatherReader;
+        _configuration = configuration;
         
         _pollingInterval = configuration.GetValue("WeatherConfiguration:PollingInterval", TimeSpan.FromHours(1));
         _location = configuration.GetValue("WeatherConfiguration:Location", "Redmond")!;
+        _enabled = configuration.GetValue("WeatherConfiguration:Enabled", true);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Weather polling service started. Polling interval: {Interval}", _pollingInterval);
+        if (!_enabled)
+        {
+            _logger.LogInformation("Weather polling service is disabled via configuration");
+            return;
+        }
 
-        // Initial delay to let the app start up
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        _logger.LogInformation("Weather polling service started. Polling interval: {Interval}, Location: {Location}", 
+            _pollingInterval, _location);
+
+        // Small delay to let the app start up
+        await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+
+        // Poll immediately on startup
+        await PollWeatherDataAsync();
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            await Task.Delay(_pollingInterval, stoppingToken);
+            
             try
             {
                 await PollWeatherDataAsync();
@@ -47,8 +63,6 @@ public class WeatherPollingService : BackgroundService
             {
                 _logger.LogError(ex, "Error in weather polling loop");
             }
-
-            await Task.Delay(_pollingInterval, stoppingToken);
         }
     }
 
@@ -56,30 +70,37 @@ public class WeatherPollingService : BackgroundService
     {
         _logger.LogDebug("Polling weather data for {Location}...", _location);
 
-        var weatherData = await _weatherReader.GetCurrentWeatherAsync();
-
-        if (!weatherData.IsValid)
+        try
         {
-            _logger.LogWarning("Failed to get weather data: {Error}", weatherData.ErrorMessage);
-            return;
+            var weatherData = await _weatherReader.GetCurrentWeatherAsync();
+
+            if (!weatherData.IsValid)
+            {
+                _logger.LogWarning("Failed to get weather data: {Error}", weatherData.ErrorMessage);
+                return;
+            }
+
+            var reading = new WeatherReading
+            {
+                Timestamp = weatherData.Timestamp,
+                Temperature = weatherData.Temperature,
+                Humidity = weatherData.Humidity,
+                Latitude = weatherData.Latitude,
+                Longitude = weatherData.Longitude,
+                Location = _location,
+                Source = "Open-Meteo"
+            };
+
+            using var scope = _scopeFactory.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IWeatherReadingRepository>();
+            await repository.SaveAsync(reading);
+
+            _logger.LogInformation("Weather data saved: {Location} - T={Temperature}°C, H={Humidity}%",
+                _location, weatherData.Temperature, weatherData.Humidity);
         }
-
-        var reading = new WeatherReading
+        catch (Exception ex)
         {
-            Timestamp = weatherData.Timestamp,
-            Temperature = weatherData.Temperature,
-            Humidity = weatherData.Humidity,
-            Latitude = weatherData.Latitude,
-            Longitude = weatherData.Longitude,
-            Location = _location,
-            Source = "Open-Meteo"
-        };
-
-        using var scope = _scopeFactory.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<IWeatherReadingRepository>();
-        await repository.SaveAsync(reading);
-
-        _logger.LogInformation("Weather data saved: {Location} - T={Temperature}°C, H={Humidity}%",
-            _location, weatherData.Temperature, weatherData.Humidity);
+            _logger.LogError(ex, "Error polling weather data");
+        }
     }
 }

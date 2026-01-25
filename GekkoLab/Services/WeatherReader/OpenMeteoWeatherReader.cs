@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text.Json;
 
 namespace GekkoLab.Services.WeatherReader;
 
@@ -50,30 +51,41 @@ public class OpenMeteoWeatherReader : IWeatherReader
     private readonly HttpClient _httpClient;
     private readonly double _latitude;
     private readonly double _longitude;
-    private readonly string _location;
 
     // Redmond, WA coordinates
-    private const double DefaultLatitude = 47.67;
-    private const double DefaultLongitude = -122.12;
+    public const double DefaultLatitude = 47.67;
+    public const double DefaultLongitude = -122.12;
 
     public OpenMeteoWeatherReader(
         ILogger<OpenMeteoWeatherReader> logger,
         IConfiguration configuration)
+        : this(logger, configuration, new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+    {
+    }
+
+    /// <summary>
+    /// Constructor for testing with custom HttpClient
+    /// </summary>
+    public OpenMeteoWeatherReader(
+        ILogger<OpenMeteoWeatherReader> logger,
+        IConfiguration configuration,
+        HttpClient httpClient)
     {
         _logger = logger;
-        _httpClient = new HttpClient();
-        _httpClient.Timeout = TimeSpan.FromSeconds(30);
+        _httpClient = httpClient;
         
         _latitude = configuration.GetValue("WeatherConfiguration:Latitude", DefaultLatitude);
         _longitude = configuration.GetValue("WeatherConfiguration:Longitude", DefaultLongitude);
-        _location = configuration.GetValue("WeatherConfiguration:Location", "Redmond")!;
     }
 
     public async Task<WeatherData> GetCurrentWeatherAsync()
     {
         try
         {
-            var url = $"https://api.open-meteo.com/v1/forecast?latitude={_latitude}&longitude={_longitude}&current=temperature_2m,relative_humidity_2m";
+            // Use InvariantCulture to ensure decimal point (not comma) in URL
+            var latStr = _latitude.ToString(CultureInfo.InvariantCulture);
+            var lonStr = _longitude.ToString(CultureInfo.InvariantCulture);
+            var url = $"https://api.open-meteo.com/v1/forecast?latitude={latStr}&longitude={lonStr}&current=temperature_2m,relative_humidity_2m";
             
             _logger.LogDebug("Fetching weather data from: {Url}", url);
             
@@ -85,6 +97,7 @@ public class OpenMeteoWeatherReader : IWeatherReader
             
             if (data?.current == null)
             {
+                _logger.LogWarning("Invalid response from weather API: {Json}", json);
                 return new WeatherData
                 {
                     IsValid = false,
