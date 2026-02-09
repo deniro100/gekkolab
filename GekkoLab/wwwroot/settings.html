@@ -14,19 +14,42 @@
         .config-section { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
         .config-section-title { font-size: 1.1em; font-weight: bold; color: #495057; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
         .config-section-title .icon { font-size: 1.3em; }
-        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
-        .config-item { display: flex; justify-content: space-between; padding: 8px 12px; background: white; border-radius: 4px; border: 1px solid #dee2e6; }
-        .config-item-label { color: #6c757d; font-size: 0.9em; }
-        .config-item-value { color: #212529; font-weight: 500; font-size: 0.9em; text-align: right; max-width: 60%; word-break: break-all; }
-        .config-item-value.enabled { color: #28a745; }
-        .config-item-value.disabled { color: #dc3545; }
-        .config-item-value.simulator { color: #fd7e14; }
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+        .config-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border-radius: 4px; border: 1px solid #dee2e6; }
+        .config-item-label { color: #6c757d; font-size: 0.9em; min-width: 120px; }
+        .config-item-value { font-size: 0.9em; text-align: right; }
+        .config-item input[type="text"], .config-item input[type="number"] {
+            border: 1px solid #ced4da; border-radius: 4px; padding: 4px 8px; font-size: 0.9em;
+            width: 150px; text-align: right; background: #fff;
+        }
+        .config-item input:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 2px rgba(52,152,219,0.2); }
+        .config-item input.changed { border-color: #f39c12; background: #fef9e7; }
+        .toggle { position: relative; width: 44px; height: 24px; cursor: pointer; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle .slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 24px; transition: 0.3s; }
+        .toggle .slider:before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+        .toggle input:checked + .slider { background: #28a745; }
+        .toggle input:checked + .slider:before { transform: translateX(20px); }
+        .toggle.changed .slider { background: #f39c12; }
+        .toggle.changed input:checked + .slider { background: #e67e22; }
         .loading { text-align: center; padding: 40px; color: #6c757d; }
         .error { color: #dc3545; text-align: center; padding: 40px; }
-        .refresh-btn { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
-        .refresh-btn:hover { background: #2980b9; }
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; }
         .last-updated { color: #6c757d; font-size: 0.85em; }
+        .btn { border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-refresh { background: #3498db; color: white; }
+        .btn-refresh:hover { background: #2980b9; }
+        .btn-save { background: #28a745; color: white; }
+        .btn-save:hover { background: #218838; }
+        .btn-restart { background: #e74c3c; color: white; }
+        .btn-restart:hover { background: #c0392b; }
+        .btn-group { display: flex; gap: 8px; }
+        .save-status { font-size: 0.85em; padding: 6px 12px; border-radius: 4px; display: none; }
+        .save-status.success { display: inline; background: #d4edda; color: #155724; }
+        .save-status.error { display: inline; background: #f8d7da; color: #721c24; }
+        .changes-badge { display: none; background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 8px; }
+        .changes-badge.visible { display: inline; }
     </style>
 </head>
 <body>
@@ -39,8 +62,15 @@
 </div>
 
 <div class="header-row">
-    <div class="last-updated" id="lastUpdated">Loading configuration...</div>
-    <button class="refresh-btn" onclick="fetchConfiguration()">🔄 Refresh</button>
+    <div>
+        <span class="last-updated" id="lastUpdated">Loading configuration...</span>
+        <span class="changes-badge" id="changesBadge">0 changes</span>
+        <span class="save-status" id="saveStatus"></span>
+    </div>
+    <div class="btn-group">
+        <button class="btn btn-save" id="saveBtn" onclick="saveConfiguration()" disabled>💾 Save</button>
+        <button class="btn btn-refresh" onclick="fetchConfiguration()">🔄 Refresh</button>
+    </div>
 </div>
 
 <div id="configContent">
@@ -48,167 +78,235 @@
 </div>
 
 <script>
-    function formatBoolean(value) {
-        if (value === true) return '<span class="enabled">✓ Enabled</span>';
-        if (value === false) return '<span class="disabled">✗ Disabled</span>';
-        return value;
+    let originalConfig = {};
+    let pendingChanges = {};
+    let changeCount = 0;
+
+    function setNestedValue(obj, path, value) {
+        const keys = path.split('.');
+        let current = obj;
+        for (let i = 0; i < keys.length - 1; i++) {
+            if (!current[keys[i]]) current[keys[i]] = {};
+            current = current[keys[i]];
+        }
+        current[keys[keys.length - 1]] = value;
     }
 
-    function formatSimulator(value) {
-        if (value === true) return '<span class="simulator">🔬 Simulator</span>';
-        if (value === false) return '<span class="enabled">🔌 Real Hardware</span>';
-        return value;
+    function getNestedValue(obj, path) {
+        return path.split('.').reduce((o, k) => o?.[k], obj);
     }
 
-    function formatValue(value) {
-        if (value === null || value === undefined || value === '') return '<span style="color: #adb5bd;">Not set</span>';
-        return value;
+    function trackChange(path, value, originalValue) {
+        const el = document.querySelector(`[data-path="${path}"]`);
+        const changed = String(value) !== String(originalValue);
+
+        if (changed) {
+            setNestedValue(pendingChanges, path, value);
+            if (el) el.classList.add('changed');
+        } else {
+            // Remove from pending if reverted
+            removeNestedValue(pendingChanges, path);
+            if (el) el.classList.remove('changed');
+        }
+
+        changeCount = countChanges(pendingChanges);
+        const badge = document.getElementById('changesBadge');
+        const saveBtn = document.getElementById('saveBtn');
+        badge.textContent = changeCount + ' change' + (changeCount !== 1 ? 's' : '');
+        badge.className = 'changes-badge' + (changeCount > 0 ? ' visible' : '');
+        saveBtn.disabled = changeCount === 0;
     }
 
-    function createConfigItem(label, value, formatter = formatValue) {
-        return `
-            <div class="config-item">
-                <span class="config-item-label">${label}</span>
-                <span class="config-item-value">${formatter(value)}</span>
-            </div>
-        `;
+    function removeNestedValue(obj, path) {
+        const keys = path.split('.');
+        if (keys.length === 1) { delete obj[keys[0]]; return; }
+        const parent = keys.slice(0, -1).reduce((o, k) => o?.[k], obj);
+        if (parent) {
+            delete parent[keys[keys.length - 1]];
+            if (Object.keys(parent).length === 0) removeNestedValue(obj, keys.slice(0, -1).join('.'));
+        }
+    }
+
+    function countChanges(obj) {
+        let count = 0;
+        for (const key of Object.keys(obj)) {
+            if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key]))
+                count += countChanges(obj[key]);
+            else
+                count++;
+        }
+        return count;
+    }
+
+    function inputField(label, path, value, type = 'text') {
+        const id = path.replace(/\./g, '_');
+        let input;
+        if (type === 'bool') {
+            const checked = value ? 'checked' : '';
+            input = `<label class="toggle" data-path="${path}">
+                <input type="checkbox" id="${id}" ${checked} onchange="trackChange('${path}', this.checked, ${!!value})">
+                <span class="slider"></span>
+            </label>`;
+        } else if (type === 'number') {
+            input = `<input type="number" id="${id}" value="${value ?? ''}" step="any" data-path="${path}"
+                onchange="trackChange('${path}', parseFloat(this.value), ${value})">`;
+        } else {
+            input = `<input type="text" id="${id}" value="${value ?? ''}" data-path="${path}"
+                onchange="trackChange('${path}', this.value, '${value ?? ''}')">`;
+        }
+        return `<div class="config-item"><span class="config-item-label">${label}</span><span class="config-item-value">${input}</span></div>`;
     }
 
     async function fetchConfiguration() {
         const container = document.getElementById('configContent');
-        
         try {
             const response = await fetch('/api/config');
             if (!response.ok) throw new Error('Failed to load configuration');
             const config = await response.json();
+            originalConfig = config;
+            pendingChanges = {};
+            changeCount = 0;
+            document.getElementById('changesBadge').className = 'changes-badge';
+            document.getElementById('saveBtn').disabled = true;
 
             let html = '';
 
             // Sensor Configuration
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">🌡️</span> Sensor Configuration</div>
-                    <div class="config-grid">
-                        ${createConfigItem('Polling Interval', config.sensorConfiguration.pollingInterval)}
-                        ${createConfigItem('I2C Address', config.sensorConfiguration.i2CAddress)}
-                        ${createConfigItem('Mode', config.sensorConfiguration.useSimulator, formatSimulator)}
-                        ${createConfigItem('Enable Retry', config.sensorConfiguration.enableRetry, formatBoolean)}
-                        ${createConfigItem('Max Retry Attempts', config.sensorConfiguration.maxRetryAttempts)}
-                        ${createConfigItem('Retry Delay (ms)', config.sensorConfiguration.retryDelayMs)}
-                    </div>
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">🌡️</span> Sensor Configuration</div>
+                <div class="config-grid">
+                    ${inputField('Polling Interval', 'SensorConfiguration.PollingInterval', config.sensorConfiguration.pollingInterval)}
+                    ${inputField('I2C Address', 'SensorConfiguration.I2CAddress', config.sensorConfiguration.i2CAddress)}
+                    ${inputField('Use Simulator', 'SensorConfiguration.UseSimulator', config.sensorConfiguration.useSimulator, 'bool')}
+                    ${inputField('Enable Retry', 'SensorConfiguration.EnableRetry', config.sensorConfiguration.enableRetry, 'bool')}
+                    ${inputField('Max Retry Attempts', 'SensorConfiguration.MaxRetryAttempts', config.sensorConfiguration.maxRetryAttempts, 'number')}
+                    ${inputField('Retry Delay (ms)', 'SensorConfiguration.RetryDelayMs', config.sensorConfiguration.retryDelayMs, 'number')}
                 </div>
-            `;
+            </div>`;
 
             // Camera Configuration
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">📷</span> Camera Configuration</div>
-                    <div class="config-grid">
-                        ${createConfigItem('Mode', config.cameraConfiguration.useSimulator, formatSimulator)}
-                        ${createConfigItem('Resolution', config.cameraConfiguration.width + ' x ' + config.cameraConfiguration.height)}
-                        ${createConfigItem('Quality', config.cameraConfiguration.quality + '%')}
-                    </div>
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">📷</span> Camera Configuration</div>
+                <div class="config-grid">
+                    ${inputField('Use Simulator', 'CameraConfiguration.UseSimulator', config.cameraConfiguration.useSimulator, 'bool')}
+                    ${inputField('Width', 'CameraConfiguration.Width', config.cameraConfiguration.width, 'number')}
+                    ${inputField('Height', 'CameraConfiguration.Height', config.cameraConfiguration.height, 'number')}
+                    ${inputField('Quality', 'CameraConfiguration.Quality', config.cameraConfiguration.quality, 'number')}
                 </div>
-            `;
+            </div>`;
 
             // Motion Detection
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">🎯</span> Motion Detection</div>
-                    <div class="config-grid">
-                        ${createConfigItem('Status', config.cameraConfiguration.motionDetection.enabled, formatBoolean)}
-                        ${createConfigItem('Polling Interval', config.cameraConfiguration.motionDetection.pollingInterval)}
-                        ${createConfigItem('Min Capture Interval', config.cameraConfiguration.motionDetection.minCaptureInterval)}
-                        ${createConfigItem('Sensitivity', (config.cameraConfiguration.motionDetection.sensitivity * 100).toFixed(0) + '%')}
-                        ${createConfigItem('Capture Directory', config.cameraConfiguration.motionDetection.captureDirectory)}
-                        ${createConfigItem('Max Capture Age (days)', config.cameraConfiguration.motionDetection.maxCaptureAgeDays)}
-                        ${createConfigItem('Max Capture Files', config.cameraConfiguration.motionDetection.maxCaptureFiles)}
-                    </div>
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">🎯</span> Motion Detection</div>
+                <div class="config-grid">
+                    ${inputField('Enabled', 'CameraConfiguration.MotionDetection.Enabled', config.cameraConfiguration.motionDetection.enabled, 'bool')}
+                    ${inputField('Polling Interval', 'CameraConfiguration.MotionDetection.PollingInterval', config.cameraConfiguration.motionDetection.pollingInterval)}
+                    ${inputField('Min Capture Interval', 'CameraConfiguration.MotionDetection.MinCaptureInterval', config.cameraConfiguration.motionDetection.minCaptureInterval)}
+                    ${inputField('Sensitivity', 'CameraConfiguration.MotionDetection.Sensitivity', config.cameraConfiguration.motionDetection.sensitivity, 'number')}
+                    ${inputField('Capture Directory', 'CameraConfiguration.MotionDetection.CaptureDirectory', config.cameraConfiguration.motionDetection.captureDirectory)}
+                    ${inputField('Max Capture Age (days)', 'CameraConfiguration.MotionDetection.MaxCaptureAgeDays', config.cameraConfiguration.motionDetection.maxCaptureAgeDays, 'number')}
+                    ${inputField('Max Capture Files', 'CameraConfiguration.MotionDetection.MaxCaptureFiles', config.cameraConfiguration.motionDetection.maxCaptureFiles, 'number')}
                 </div>
-            `;
+            </div>`;
 
             // Performance Monitoring
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">📊</span> Performance Monitoring</div>
-                    <div class="config-grid">
-                        ${createConfigItem('Status', config.performanceMonitoring.enabled, formatBoolean)}
-                        ${createConfigItem('Snapshot Interval', config.performanceMonitoring.snapshotInterval)}
-                        ${createConfigItem('Aggregation Interval', config.performanceMonitoring.aggregationInterval)}
-                        ${createConfigItem('Max Age (days)', config.performanceMonitoring.maxAgeDays)}
-                    </div>
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">📊</span> Performance Monitoring</div>
+                <div class="config-grid">
+                    ${inputField('Enabled', 'PerformanceMonitoring.Enabled', config.performanceMonitoring.enabled, 'bool')}
+                    ${inputField('Snapshot Interval', 'PerformanceMonitoring.SnapshotInterval', config.performanceMonitoring.snapshotInterval)}
+                    ${inputField('Aggregation Interval', 'PerformanceMonitoring.AggregationInterval', config.performanceMonitoring.aggregationInterval)}
+                    ${inputField('Max Age (days)', 'PerformanceMonitoring.MaxAgeDays', config.performanceMonitoring.maxAgeDays, 'number')}
                 </div>
-            `;
+            </div>`;
 
             // Weather Configuration
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">🌤️</span> Weather Configuration</div>
-                    <div class="config-grid">
-                        ${createConfigItem('Status', config.weatherConfiguration.enabled, formatBoolean)}
-                        ${createConfigItem('Polling Interval', config.weatherConfiguration.pollingInterval)}
-                        ${createConfigItem('Location', config.weatherConfiguration.location)}
-                        ${createConfigItem('Coordinates', config.weatherConfiguration.latitude.toFixed(2) + ', ' + config.weatherConfiguration.longitude.toFixed(2))}
-                    </div>
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">🌤️</span> Weather Configuration</div>
+                <div class="config-grid">
+                    ${inputField('Enabled', 'WeatherConfiguration.Enabled', config.weatherConfiguration.enabled, 'bool')}
+                    ${inputField('Polling Interval', 'WeatherConfiguration.PollingInterval', config.weatherConfiguration.pollingInterval)}
+                    ${inputField('Location', 'WeatherConfiguration.Location', config.weatherConfiguration.location)}
+                    ${inputField('Latitude', 'WeatherConfiguration.Latitude', config.weatherConfiguration.latitude, 'number')}
+                    ${inputField('Longitude', 'WeatherConfiguration.Longitude', config.weatherConfiguration.longitude, 'number')}
                 </div>
-            `;
+            </div>`;
 
             // Gecko Detector
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">🦎</span> Gecko Detector</div>
-                    <div class="config-grid">
-                        ${createConfigItem('Status', config.gekkoDetector.enabled, formatBoolean)}
-                        ${createConfigItem('Mode', config.gekkoDetector.useSimulator, formatSimulator)}
-                        ${createConfigItem('Model Path', config.gekkoDetector.modelPath)}
-                        ${createConfigItem('Polling Interval', config.gekkoDetector.pollingInterval)}
-                        ${createConfigItem('Input Size', config.gekkoDetector.inputWidth + ' x ' + config.gekkoDetector.inputHeight)}
-                        ${createConfigItem('Confidence Threshold', (config.gekkoDetector.confidenceThreshold * 100).toFixed(0) + '%')}
-                    </div>
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">🦎</span> Gecko Detector</div>
+                <div class="config-grid">
+                    ${inputField('Enabled', 'GekkoDetector.Enabled', config.gekkoDetector.enabled, 'bool')}
+                    ${inputField('Use Simulator', 'GekkoDetector.UseSimulator', config.gekkoDetector.useSimulator, 'bool')}
+                    ${inputField('Model Path', 'GekkoDetector.ModelPath', config.gekkoDetector.modelPath)}
+                    ${inputField('Polling Interval', 'GekkoDetector.PollingInterval', config.gekkoDetector.pollingInterval)}
+                    ${inputField('Input Width', 'GekkoDetector.InputWidth', config.gekkoDetector.inputWidth, 'number')}
+                    ${inputField('Input Height', 'GekkoDetector.InputHeight', config.gekkoDetector.inputHeight, 'number')}
+                    ${inputField('Confidence Threshold', 'GekkoDetector.ConfidenceThreshold', config.gekkoDetector.confidenceThreshold, 'number')}
                 </div>
-            `;
+            </div>`;
 
-            // Azure Configuration
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">☁️</span> Azure Configuration</div>
-                    <div class="config-grid">
-                        ${createConfigItem('Status', config.azureConfiguration.enabled, formatBoolean)}
-                        ${createConfigItem('Publish Interval (min)', config.azureConfiguration.publishIntervalMinutes)}
-                    </div>
+            // Logging
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">📝</span> Logging Configuration</div>
+                <div class="config-grid">
+                    ${inputField('Default Level', 'Logging.LogLevel.Default', config.logging.logLevel.default)}
+                    ${inputField('ASP.NET Core Level', 'Logging.LogLevel.Microsoft.AspNetCore', config.logging.logLevel.microsoftAspNetCore)}
+                    ${inputField('Entity Framework Level', 'Logging.LogLevel.Microsoft.EntityFrameworkCore', config.logging.logLevel.entityFramework)}
                 </div>
-            `;
+            </div>`;
 
-            // Logging Configuration
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">📝</span> Logging Configuration</div>
-                    <div class="config-grid">
-                        ${createConfigItem('Default Level', config.logging.logLevel.default)}
-                        ${createConfigItem('ASP.NET Core Level', config.logging.logLevel.microsoftAspNetCore)}
-                        ${createConfigItem('Entity Framework Level', config.logging.logLevel.entityFramework)}
-                    </div>
+            // Database (read-only)
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">🗄️</span> Database & Server (read-only)</div>
+                <div class="config-grid">
+                    <div class="config-item"><span class="config-item-label">SQLite Connection</span><span class="config-item-value" style="color:#212529">${config.connectionStrings.sqLite}</span></div>
+                    <div class="config-item"><span class="config-item-label">Kestrel URL</span><span class="config-item-value" style="color:#212529">${config.kestrel.httpUrl}</span></div>
                 </div>
-            `;
+            </div>`;
 
-            // Database Configuration
-            html += `
-                <div class="config-section">
-                    <div class="config-section-title"><span class="icon">🗄️</span> Database Configuration</div>
-                    <div class="config-grid">
-                        ${createConfigItem('SQLite Connection', config.connectionStrings.sqLite)}
-                        ${createConfigItem('Kestrel URL', config.kestrel.httpUrl)}
-                    </div>
-                </div>
-            `;
+            html += `<p style="color:#6c757d; font-size:0.85em; margin-top:20px;">⚠️ Most changes require a service restart to take effect.</p>`;
 
             container.innerHTML = html;
             document.getElementById('lastUpdated').textContent = 'Last updated: ' + new Date().toLocaleString();
+            document.getElementById('saveStatus').className = 'save-status';
 
         } catch (err) {
             console.error('Error fetching configuration:', err);
             container.innerHTML = '<div class="error">❌ Failed to load configuration. Please try again.</div>';
             document.getElementById('lastUpdated').textContent = 'Failed to load';
+        }
+    }
+
+    async function saveConfiguration() {
+        if (changeCount === 0) return;
+        const saveBtn = document.getElementById('saveBtn');
+        const status = document.getElementById('saveStatus');
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Saving...';
+        status.className = 'save-status';
+
+        try {
+            const response = await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(pendingChanges)
+            });
+            const result = await response.json();
+
+            if (!response.ok) throw new Error(result.message || 'Save failed');
+
+            status.textContent = '✅ ' + result.message;
+            status.className = 'save-status success';
+            // Reload to get fresh values
+            setTimeout(() => fetchConfiguration(), 1500);
+        } catch (err) {
+            console.error('Error saving configuration:', err);
+            status.textContent = '❌ ' + err.message;
+            status.className = 'save-status error';
+            saveBtn.disabled = false;
+        } finally {
+            saveBtn.textContent = '💾 Save';
         }
     }
 

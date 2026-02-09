@@ -71,7 +71,7 @@ Write-Host "Transfer complete." -ForegroundColor Green
 # Deploy with a single SSH command (all on one line to avoid line ending issues)
 Write-Host "Deploying..." -ForegroundColor Gray
 
-$deployCmd = "sudo systemctl stop gekkolab 2>/dev/null; mkdir -p $RemoteAppDir; cd $RemoteAppDir; rm -rf ./*; tar -xzf /tmp/gekkolab-deploy.tar.gz; rm /tmp/gekkolab-deploy.tar.gz; mkdir -p gekkodata; chmod +x GekkoLab"
+$deployCmd = "sudo systemctl stop gekkolab 2>/dev/null; mkdir -p $RemoteAppDir; cd $RemoteAppDir; find . -maxdepth 1 ! -name 'gekkodata' ! -name '.' -exec rm -rf {} +; tar -xzf /tmp/gekkolab-deploy.tar.gz; rm /tmp/gekkolab-deploy.tar.gz; mkdir -p gekkodata/motion-captures; chmod +x GekkoLab"
 ssh $SshTarget $deployCmd
 
 # Create and write service file

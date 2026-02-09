@@ -35,6 +35,12 @@
         .motion-stat-label { font-size: 0.85em; color: #666; }
         .no-image { padding: 100px 20px; color: #999; font-style: italic; }
         .charts-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        .snapshot-btn { background: #e74c3c; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1.1em; cursor: pointer; transition: background 0.2s; }
+        .snapshot-btn:hover { background: #c0392b; }
+        .snapshot-btn:disabled { background: #95a5a6; cursor: not-allowed; }
+        .snapshot-section { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .snapshot-image { max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 15px; }
+        .snapshot-status { margin-top: 10px; font-size: 0.9em; color: #666; }
         @media (max-width: 768px) { .motion-container { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -87,6 +93,14 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Camera Snapshot Section -->
+<div class="snapshot-section">
+    <div class="chart-title">📸 Camera Snapshot</div>
+    <button class="snapshot-btn" id="snapshotBtn" onclick="takeSnapshot()">📷 Take Snapshot</button>
+    <div class="snapshot-status" id="snapshotStatus"></div>
+    <div id="snapshotContainer"></div>
 </div>
 
 <!-- Sensor Data Section -->
@@ -435,6 +449,39 @@
                     plugins: { legend: { position: 'top' } }
                 }
             });
+        }
+    }
+
+    // ============ Camera Snapshot Functions ============
+    async function takeSnapshot() {
+        const btn = document.getElementById('snapshotBtn');
+        const status = document.getElementById('snapshotStatus');
+        const container = document.getElementById('snapshotContainer');
+
+        btn.disabled = true;
+        btn.textContent = '⏳ Capturing...';
+        status.textContent = '';
+
+        try {
+            const response = await fetch('/api/camera/snapshot', { method: 'POST' });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ message: 'Capture failed' }));
+                status.textContent = '❌ ' + error.message;
+                return;
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+
+            container.innerHTML = `<img src="${url}" alt="Camera snapshot" class="snapshot-image" />`;
+            status.textContent = '✅ Captured at ' + new Date().toLocaleString();
+        } catch (err) {
+            console.error('Error taking snapshot:', err);
+            status.textContent = '❌ Error: ' + err.message;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '📷 Take Snapshot';
         }
     }
 

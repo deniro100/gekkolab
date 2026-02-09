@@ -10,6 +10,8 @@ public class RaspberryPiCameraCapture : ICameraCapture
 {
     private const string CameraCommand = "rpicam-still";
     
+    private static readonly SemaphoreSlim _cameraSemaphore = new(1, 1);
+
     private readonly ILogger<RaspberryPiCameraCapture> _logger;
     private readonly int _width;
     private readonly int _height;
@@ -46,6 +48,8 @@ public class RaspberryPiCameraCapture : ICameraCapture
             return null;
         }
 
+        // Serialize camera access — hardware only supports one capture at a time
+        await _cameraSemaphore.WaitAsync();
         try
         {
             // Use rpicam-still to capture a frame
@@ -104,6 +108,10 @@ public class RaspberryPiCameraCapture : ICameraCapture
         {
             _logger.LogError(ex, "Error capturing frame from camera");
             return null;
+        }
+        finally
+        {
+            _cameraSemaphore.Release();
         }
     }
 

@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Mvc;
 
 namespace GekkoLab.Controllers;
 
@@ -8,11 +10,13 @@ public class ConfigController : ControllerBase
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<ConfigController> _logger;
+    private readonly IWebHostEnvironment _environment;
 
-    public ConfigController(IConfiguration configuration, ILogger<ConfigController> logger)
+    public ConfigController(IConfiguration configuration, ILogger<ConfigController> logger, IWebHostEnvironment environment)
     {
         _configuration = configuration;
         _logger = logger;
+        _environment = environment;
     }
 
     /// <summary>
@@ -100,5 +104,54 @@ public class ConfigController : ControllerBase
         };
 
         return Ok(config);
+    }
+
+    /// <summary>
+    /// Update application configuration settings. Requires restart for changes to take effect.
+    /// </summary>
+    [HttpPut]
+    public IActionResult UpdateConfiguration([FromBody] JsonElement settings)
+    {
+        try
+        {
+            var appSettingsPath = Path.Combine(_environment.ContentRootPath, "appsettings.json");
+
+            if (!System.IO.File.Exists(appSettingsPath))
+            {
+                _logger.LogError("appsettings.json not found at {Path}", appSettingsPath);
+                return StatusCode(500, new { message = "Configuration file not found" });
+            }
+
+            var json = System.IO.File.ReadAllText(appSettingsPath);
+            var root = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip })!.AsObject();
+
+            MergeJsonObjects(root, JsonNode.Parse(settings.GetRawText())!.AsObject());
+
+            var writeOptions = new JsonSerializerOptions { WriteIndented = true };
+            System.IO.File.WriteAllText(appSettingsPath, root.ToJsonString(writeOptions));
+
+            _logger.LogInformation("Configuration updated successfully");
+            return Ok(new { message = "Configuration saved. Restart the service for changes to take full effect." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating configuration");
+            return StatusCode(500, new { message = "Error saving configuration" });
+        }
+    }
+
+    private static void MergeJsonObjects(JsonObject target, JsonObject source)
+    {
+        foreach (var property in source)
+        {
+            if (property.Value is JsonObject sourceChild && target[property.Key] is JsonObject targetChild)
+            {
+                MergeJsonObjects(targetChild, sourceChild);
+            }
+            else
+            {
+                target[property.Key] = property.Value?.DeepClone();
+            }
+        }
     }
 }
