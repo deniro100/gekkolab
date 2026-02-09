@@ -157,6 +157,37 @@
         return `<div class="config-item"><span class="config-item-label">${label}</span><span class="config-item-value">${input}</span></div>`;
     }
 
+    function readonlyField(label, value) {
+        return `<div class="config-item"><span class="config-item-label">${label}</span><span class="config-item-value" style="color:#212529">${value ?? ''}</span></div>`;
+    }
+
+    function selectField(label, path, value, options) {
+        const id = path.replace(/\./g, '_');
+        const optionsHtml = options.map(o => `<option value="${o}" ${String(o) === String(value) ? 'selected' : ''}>${o}</option>`).join('');
+        const input = `<select id="${id}" data-path="${path}" style="border:1px solid #ced4da;border-radius:4px;padding:4px 8px;font-size:0.9em;background:#fff;"
+            onchange="trackChange('${path}', parseInt(this.value), ${value})">
+            ${optionsHtml}
+        </select>`;
+        return `<div class="config-item"><span class="config-item-label">${label}</span><span class="config-item-value">${input}</span></div>`;
+    }
+
+    function resolutionField(label, widthPath, heightPath, currentW, currentH) {
+        const resolutions = [
+            { w: 640, h: 480 }, { w: 800, h: 600 }, { w: 1024, h: 768 },
+            { w: 1280, h: 720 }, { w: 1920, h: 1080 }, { w: 2592, h: 1944 }
+        ];
+        const currentVal = currentW + 'x' + currentH;
+        const optionsHtml = resolutions.map(r => {
+            const val = r.w + 'x' + r.h;
+            return `<option value="${val}" ${val === currentVal ? 'selected' : ''}>${r.w} × ${r.h}</option>`;
+        }).join('');
+        const input = `<select id="resolution" data-path="resolution" style="border:1px solid #ced4da;border-radius:4px;padding:4px 8px;font-size:0.9em;background:#fff;"
+            onchange="(function(el){ var p=el.value.split('x'); trackChange('${widthPath}',parseInt(p[0]),${currentW}); trackChange('${heightPath}',parseInt(p[1]),${currentH}); })(this)">
+            ${optionsHtml}
+        </select>`;
+        return `<div class="config-item"><span class="config-item-label">${label}</span><span class="config-item-value">${input}</span></div>`;
+    }
+
     async function fetchConfiguration() {
         const container = document.getElementById('configContent');
         try {
@@ -176,7 +207,7 @@
                 <div class="config-section-title"><span class="icon">🌡️</span> Sensor Configuration</div>
                 <div class="config-grid">
                     ${inputField('Polling Interval', 'SensorConfiguration.PollingInterval', config.sensorConfiguration.pollingInterval)}
-                    ${inputField('I2C Address', 'SensorConfiguration.I2CAddress', config.sensorConfiguration.i2CAddress)}
+                    ${readonlyField('I2C Address', config.sensorConfiguration.i2CAddress)}
                     ${inputField('Use Simulator', 'SensorConfiguration.UseSimulator', config.sensorConfiguration.useSimulator, 'bool')}
                     ${inputField('Enable Retry', 'SensorConfiguration.EnableRetry', config.sensorConfiguration.enableRetry, 'bool')}
                     ${inputField('Max Retry Attempts', 'SensorConfiguration.MaxRetryAttempts', config.sensorConfiguration.maxRetryAttempts, 'number')}
@@ -189,8 +220,7 @@
                 <div class="config-section-title"><span class="icon">📷</span> Camera Configuration</div>
                 <div class="config-grid">
                     ${inputField('Use Simulator', 'CameraConfiguration.UseSimulator', config.cameraConfiguration.useSimulator, 'bool')}
-                    ${inputField('Width', 'CameraConfiguration.Width', config.cameraConfiguration.width, 'number')}
-                    ${inputField('Height', 'CameraConfiguration.Height', config.cameraConfiguration.height, 'number')}
+                    ${resolutionField('Resolution', 'CameraConfiguration.Width', 'CameraConfiguration.Height', config.cameraConfiguration.width, config.cameraConfiguration.height)}
                     ${inputField('Quality', 'CameraConfiguration.Quality', config.cameraConfiguration.quality, 'number')}
                 </div>
             </div>`;
@@ -226,9 +256,9 @@
                 <div class="config-grid">
                     ${inputField('Enabled', 'WeatherConfiguration.Enabled', config.weatherConfiguration.enabled, 'bool')}
                     ${inputField('Polling Interval', 'WeatherConfiguration.PollingInterval', config.weatherConfiguration.pollingInterval)}
-                    ${inputField('Location', 'WeatherConfiguration.Location', config.weatherConfiguration.location)}
-                    ${inputField('Latitude', 'WeatherConfiguration.Latitude', config.weatherConfiguration.latitude, 'number')}
-                    ${inputField('Longitude', 'WeatherConfiguration.Longitude', config.weatherConfiguration.longitude, 'number')}
+                    ${readonlyField('Location', config.weatherConfiguration.location)}
+                    ${readonlyField('Latitude', config.weatherConfiguration.latitude?.toFixed(2))}
+                    ${readonlyField('Longitude', config.weatherConfiguration.longitude?.toFixed(2))}
                 </div>
             </div>`;
 
@@ -238,7 +268,7 @@
                 <div class="config-grid">
                     ${inputField('Enabled', 'GekkoDetector.Enabled', config.gekkoDetector.enabled, 'bool')}
                     ${inputField('Use Simulator', 'GekkoDetector.UseSimulator', config.gekkoDetector.useSimulator, 'bool')}
-                    ${inputField('Model Path', 'GekkoDetector.ModelPath', config.gekkoDetector.modelPath)}
+                    ${readonlyField('Model Path', config.gekkoDetector.modelPath)}
                     ${inputField('Polling Interval', 'GekkoDetector.PollingInterval', config.gekkoDetector.pollingInterval)}
                     ${inputField('Input Width', 'GekkoDetector.InputWidth', config.gekkoDetector.inputWidth, 'number')}
                     ${inputField('Input Height', 'GekkoDetector.InputHeight', config.gekkoDetector.inputHeight, 'number')}
@@ -253,6 +283,15 @@
                     ${inputField('Default Level', 'Logging.LogLevel.Default', config.logging.logLevel.default)}
                     ${inputField('ASP.NET Core Level', 'Logging.LogLevel.Microsoft.AspNetCore', config.logging.logLevel.microsoftAspNetCore)}
                     ${inputField('Entity Framework Level', 'Logging.LogLevel.Microsoft.EntityFrameworkCore', config.logging.logLevel.entityFramework)}
+                </div>
+            </div>`;
+
+            // Telegram Bot
+            html += `<div class="config-section">
+                <div class="config-section-title"><span class="icon">🤖</span> Telegram Bot</div>
+                <div class="config-grid">
+                    ${inputField('Bot Token', 'TelegramBot.Token', config.telegramBot?.token ?? '')}
+                    ${readonlyField('Status', config.telegramBot?.configured ? '✅ Configured' : '⚠️ Not configured')}
                 </div>
             </div>`;
 

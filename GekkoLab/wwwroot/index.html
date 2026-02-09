@@ -453,6 +453,21 @@
     }
 
     // ============ Camera Snapshot Functions ============
+    async function loadLatestSnapshot() {
+        const container = document.getElementById('snapshotContainer');
+        const status = document.getElementById('snapshotStatus');
+        try {
+            const infoResponse = await fetch('/api/camera/snapshot/latest/info');
+            if (!infoResponse.ok) return;
+            const info = await infoResponse.json();
+            const imageUrl = info.url + '?t=' + new Date(info.timestamp).getTime();
+            container.innerHTML = `<img src="${imageUrl}" alt="Camera snapshot" class="snapshot-image" />`;
+            status.textContent = '📅 Captured: ' + new Date(info.timestamp).toLocaleString();
+        } catch (err) {
+            console.error('Error loading latest snapshot:', err);
+        }
+    }
+
     async function takeSnapshot() {
         const btn = document.getElementById('snapshotBtn');
         const status = document.getElementById('snapshotStatus');
@@ -471,11 +486,10 @@
                 return;
             }
 
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-
-            container.innerHTML = `<img src="${url}" alt="Camera snapshot" class="snapshot-image" />`;
-            status.textContent = '✅ Captured at ' + new Date().toLocaleString();
+            const result = await response.json();
+            const imageUrl = result.url + '?t=' + new Date(result.timestamp).getTime();
+            container.innerHTML = `<img src="${imageUrl}" alt="Camera snapshot" class="snapshot-image" />`;
+            status.textContent = '✅ Captured at ' + new Date(result.timestamp).toLocaleString();
         } catch (err) {
             console.error('Error taking snapshot:', err);
             status.textContent = '❌ Error: ' + err.message;
@@ -486,6 +500,7 @@
     }
 
     // Initial load
+    loadLatestSnapshot();
     fetchMotionLatest();
     fetchMotionStatistics();
     fetchLatest();

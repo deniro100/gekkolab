@@ -9,4 +9,10 @@ gekkodata/
 
 # Publish output
 publish/
+publish-arm64/
 
+# Test results
+TestResults/
+
+# User-specific settings
+*.DotSettings.user

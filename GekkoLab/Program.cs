@@ -5,6 +5,7 @@ using GekkoLab.Services.Camera;
 using GekkoLab.Services.GekkoDetector;
 using GekkoLab.Services.PerformanceMonitoring;
 using GekkoLab.Services.Repository;
+using GekkoLab.Services.Telegram;
 using GekkoLab.Services.WeatherReader;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,6 +51,7 @@ builder.Services.AddHostedService<MotionDetectionService>();
 builder.Services.AddHostedService<PerformanceMonitoringService>();
 builder.Services.AddHostedService<WeatherPollingService>();
 builder.Services.AddHostedService<GekkoDetectorService>();
+builder.Services.AddHostedService<TelegramBotService>();
 
 var app = builder.Build();
 

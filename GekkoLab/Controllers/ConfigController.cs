@@ -100,6 +100,11 @@ public class ConfigController : ControllerBase
                 Enabled = _configuration.GetValue<bool>("AzureConfiguration:Enabled"),
                 PublishIntervalMinutes = _configuration.GetValue<int>("AzureConfiguration:PublishIntervalMinutes")
                 // Note: ConnectionString intentionally omitted for security
+            },
+            TelegramBot = new
+            {
+                Token = MaskToken(_configuration["TelegramBot:Token"]),
+                Configured = !string.IsNullOrWhiteSpace(_configuration["TelegramBot:Token"])
             }
         };
 
@@ -153,5 +158,12 @@ public class ConfigController : ControllerBase
                 target[property.Key] = property.Value?.DeepClone();
             }
         }
+    }
+
+    private static string MaskToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return "";
+        if (token.Length <= 10) return "****";
+        return token[..5] + "****" + token[^4..];
     }
 }
