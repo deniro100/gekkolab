@@ -71,7 +71,7 @@ public class SensorPollingServiceTests
 
         _sensorReaderMock
             .Setup(r => r.ReadSensorDataAsync())
-            .Returns(Task.FromResult(sensorData)!);
+            .Returns(Task.FromResult<Bme280Data?>(sensorData));
 
         var service = new SensorPollingService(
             _loggerMock.Object,
@@ -103,7 +103,7 @@ public class SensorPollingServiceTests
 
         _sensorReaderMock
             .Setup(r => r.ReadSensorDataAsync())
-            .Returns((Task<Bme280Data>?)null);
+            .ReturnsAsync((Bme280Data?)null);
 
         var service = new SensorPollingService(
             _loggerMock.Object,
@@ -131,7 +131,7 @@ public class SensorPollingServiceTests
 
         _sensorReaderMock
             .Setup(r => r.ReadSensorDataAsync())
-            .Returns(Task.FromResult<Bme280Data>(null!)!);
+            .Returns(Task.FromResult<Bme280Data?>(null!));
 
         var service = new SensorPollingService(
             _loggerMock.Object,
@@ -174,7 +174,7 @@ public class SensorPollingServiceTests
                 {
                     throw new Exception("Test exception");
                 }
-                return Task.FromResult(sensorData)!;
+                return Task.FromResult<Bme280Data?>(sensorData);
             });
 
         var service = new SensorPollingService(
@@ -229,7 +229,7 @@ public class SensorPollingServiceTests
 
         _sensorReaderMock
             .Setup(r => r.ReadSensorDataAsync())
-            .Returns(Task.FromResult(sensorData)!);
+            .Returns(Task.FromResult<Bme280Data?>(sensorData));
 
         var service = new SensorPollingService(
             _loggerMock.Object,

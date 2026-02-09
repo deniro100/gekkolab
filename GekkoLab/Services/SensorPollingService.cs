@@ -10,7 +10,6 @@ namespace GekkoLab.Services;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IConfiguration _configuration;
         private readonly IBme280Reader _sensorReader;
-        private Timer? _timer;
 
         public SensorPollingService(
             ILogger<SensorPollingService> logger,
@@ -24,15 +23,25 @@ namespace GekkoLab.Services;
             _sensorReader = sensorReader;
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var interval = _configuration.GetValue<TimeSpan>("SensorConfiguration:PollingInterval", TimeSpan.FromMinutes(1));
             
             _logger.LogInformation("Sensor polling interval set to {Interval}", interval);
 
-            _timer = new Timer(async _ => await ReadAndStoreSensorData(), null, TimeSpan.Zero, interval);
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await ReadAndStoreSensorData();
 
-            return Task.CompletedTask;
+                try
+                {
+                    await Task.Delay(interval, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
         }
 
         private async Task ReadAndStoreSensorData()
@@ -42,17 +51,10 @@ namespace GekkoLab.Services;
                 using var scope = _scopeFactory.CreateScope();
                 var repository = scope.ServiceProvider.GetRequiredService<ISensorReadingRepository>();
 
-                var dataTask = _sensorReader.ReadSensorDataAsync();
-                if (dataTask == null)
-                {
-                    _logger.LogWarning("Sensor reader returned null task. Sensor may not be available. Reader type: {ReaderType}", _sensorReader.GetType().Name);
-                    return;
-                }
-
-                var data = await dataTask;
+                var data = await _sensorReader.ReadSensorDataAsync();
                 if (data == null)
                 {
-                    _logger.LogError("Sensor data is null. Sensor may not be responding.");
+                    _logger.LogWarning("Sensor data is null. Sensor may not be available. Reader type: {ReaderType}", _sensorReader.GetType().Name);
                     return;
                 }
                 
@@ -74,11 +76,5 @@ namespace GekkoLab.Services;
             {
                 _logger.LogError(ex, "Error reading or storing sensor data");
             }
-        }
-
-        public override void Dispose()
-        {
-            _timer?.Dispose();
-            base.Dispose();
         }
     }

@@ -16,10 +16,6 @@ public class PerformanceMonitoringService : BackgroundService
     private readonly IMetricsStore _metricsStore;
     private readonly IServiceScopeFactory _scopeFactory;
 
-    private Timer? _snapshotTimer;
-    private Timer? _aggregationTimer;
-    private DateTime _lastAggregationTime = DateTime.MinValue;
-
     public PerformanceMonitoringService(
         ILogger<PerformanceMonitoringService> logger,
         IConfiguration configuration,
@@ -34,13 +30,13 @@ public class PerformanceMonitoringService : BackgroundService
         _scopeFactory = scopeFactory;
     }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var enabled = _configuration.GetValue<bool>("PerformanceMonitoring:Enabled", true);
         if (!enabled)
         {
             _logger.LogInformation("Performance monitoring is disabled via configuration");
-            return Task.CompletedTask;
+            return;
         }
 
         var snapshotInterval = _configuration.GetValue<TimeSpan>("PerformanceMonitoring:SnapshotInterval", TimeSpan.FromSeconds(5));
@@ -48,21 +44,27 @@ public class PerformanceMonitoringService : BackgroundService
 
         _logger.LogInformation("Performance monitoring started. Snapshot interval: {Snapshot}, Aggregation interval: {Aggregation}", snapshotInterval, aggregationInterval);
 
-        // Timer for collecting snapshots (every 5 seconds)
-        _snapshotTimer = new Timer(
-            async _ => await CollectSnapshotAsync(),
-            null,
-            TimeSpan.Zero,
-            snapshotInterval);
+        var lastAggregationTime = DateTime.UtcNow;
 
-        // Timer for aggregating and storing to DB (every 1 minute)
-        _aggregationTimer = new Timer(
-            async _ => await AggregateAndStoreAsync(),
-            null,
-            aggregationInterval,
-            aggregationInterval);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await CollectSnapshotAsync();
 
-        return Task.CompletedTask;
+            if (DateTime.UtcNow - lastAggregationTime >= aggregationInterval)
+            {
+                await AggregateAndStoreAsync();
+                lastAggregationTime = DateTime.UtcNow;
+            }
+
+            try
+            {
+                await Task.Delay(snapshotInterval, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
     }
 
     private async Task CollectSnapshotAsync()
@@ -130,12 +132,5 @@ public class PerformanceMonitoringService : BackgroundService
         {
             _logger.LogError(ex, "Error aggregating and storing metrics");
         }
-    }
-
-    public override void Dispose()
-    {
-        _snapshotTimer?.Dispose();
-        _aggregationTimer?.Dispose();
-        base.Dispose();
     }
 }

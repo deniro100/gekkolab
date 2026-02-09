@@ -60,7 +60,17 @@ Directory.CreateDirectory("gekkodata");
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<GekkoLabDbContext>();
-    dbContext.Database.Migrate();
+    try
+    {
+        dbContext.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("Migration");
+        logger.LogError(ex, "An error occurred while migrating the database");
+        throw;
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -70,7 +80,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Docker"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseDefaultFiles(); // Serve index.html as default
 app.UseStaticFiles(new StaticFileOptions
 {

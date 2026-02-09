@@ -75,6 +75,7 @@ public class RaspberryPiCameraCapture : ICameraCapture
             {
                 _logger.LogError("Camera capture timed out");
                 try { process.Kill(); } catch { }
+                try { process.WaitForExit(1000); } catch { }
                 return null;
             }
 

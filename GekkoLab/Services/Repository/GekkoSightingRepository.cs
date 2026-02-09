@@ -45,6 +45,7 @@ public class GekkoSightingRepository : IGekkoSightingRepository
     public async Task<GekkoSighting?> GetLatestAsync()
     {
         return await _context.GekkoSightings
+            .AsNoTracking()
             .OrderByDescending(s => s.Timestamp)
             .FirstOrDefaultAsync();
     }
@@ -52,6 +53,7 @@ public class GekkoSightingRepository : IGekkoSightingRepository
     public async Task<IEnumerable<GekkoSighting>> GetHistoryAsync(DateTime from, DateTime to)
     {
         return await _context.GekkoSightings
+            .AsNoTracking()
             .Where(s => s.Timestamp >= from && s.Timestamp <= to)
             .OrderByDescending(s => s.Timestamp)
             .ToListAsync();
@@ -66,21 +68,28 @@ public class GekkoSightingRepository : IGekkoSightingRepository
 
     public async Task<GekkoSightingStatistics> GetStatisticsAsync(DateTime from, DateTime to)
     {
-        var sightings = await _context.GekkoSightings
-            .Where(s => s.Timestamp >= from && s.Timestamp <= to)
-            .ToListAsync();
+        var query = _context.GekkoSightings
+            .AsNoTracking()
+            .Where(s => s.Timestamp >= from && s.Timestamp <= to);
+
+        var totalSightings = await query.CountAsync();
+
+        if (totalSightings == 0)
+        {
+            return new GekkoSightingStatistics();
+        }
 
         var now = DateTime.UtcNow;
 
         return new GekkoSightingStatistics
         {
-            TotalSightings = sightings.Count,
-            SightingsLast24Hours = sightings.Count(s => s.Timestamp >= now.AddHours(-24)),
-            SightingsLastHour = sightings.Count(s => s.Timestamp >= now.AddHours(-1)),
-            AverageConfidence = sightings.Any() ? sightings.Average(s => s.Confidence) : 0,
-            MaxConfidence = sightings.Any() ? sightings.Max(s => s.Confidence) : 0,
-            FirstSighting = sightings.OrderBy(s => s.Timestamp).FirstOrDefault()?.Timestamp,
-            LastSighting = sightings.OrderByDescending(s => s.Timestamp).FirstOrDefault()?.Timestamp
+            TotalSightings = totalSightings,
+            SightingsLast24Hours = await query.CountAsync(s => s.Timestamp >= now.AddHours(-24)),
+            SightingsLastHour = await query.CountAsync(s => s.Timestamp >= now.AddHours(-1)),
+            AverageConfidence = (float)await query.AverageAsync(s => (double)s.Confidence),
+            MaxConfidence = (float)await query.MaxAsync(s => (double)s.Confidence),
+            FirstSighting = await query.OrderBy(s => s.Timestamp).Select(s => (DateTime?)s.Timestamp).FirstOrDefaultAsync(),
+            LastSighting = await query.OrderByDescending(s => s.Timestamp).Select(s => (DateTime?)s.Timestamp).FirstOrDefaultAsync()
         };
     }
 }

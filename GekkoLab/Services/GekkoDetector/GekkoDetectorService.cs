@@ -1,5 +1,6 @@
 ﻿using GekkoLab.Models;
 using GekkoLab.Services.Repository;
+using Microsoft.EntityFrameworkCore;
 
 namespace GekkoLab.Services.GekkoDetector;
 
@@ -123,12 +124,12 @@ public class GekkoDetectorService : BackgroundService
         var result = await _detector.DetectAsync(imageData, file.FullName);
 
         using var scope = _scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<GekkoLabDbContext>();
         
         // Save detection result (all detections)
         var detectionRepository = scope.ServiceProvider.GetRequiredService<IGekkoDetectionRepository>();
-        await detectionRepository.SaveAsync(result);
 
-        // If gecko is detected, save a separate sighting record
+        // If gecko is detected, save both in a transaction for consistency
         if (result.GekkoDetected)
         {
             var sightingRepository = scope.ServiceProvider.GetRequiredService<IGekkoSightingRepository>();
@@ -144,14 +145,27 @@ public class GekkoDetectorService : BackgroundService
                 Width = result.BoundingBoxWidth,
                 Height = result.BoundingBoxHeight
             };
-            
-            await sightingRepository.SaveAsync(sighting);
+
+            await using var transaction = await dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                await detectionRepository.SaveAsync(result);
+                await sightingRepository.SaveAsync(sighting);
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
 
             _logger.LogInformation("🦎 GECKO DETECTED in {File}! Confidence: {Confidence:P2}, Position: ({X},{Y})",
                 file.Name, result.Confidence, result.BoundingBoxX, result.BoundingBoxY);
         }
         else
         {
+            await detectionRepository.SaveAsync(result);
+
             _logger.LogDebug("No gecko in {File}. Label: {Label}, Confidence: {Confidence:P2}",
                 file.Name, result.Label, result.Confidence);
         }

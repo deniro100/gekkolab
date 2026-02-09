@@ -36,7 +36,7 @@ public class Bme280SimulatorReaderTests
         var result = await _reader.ReadSensorDataAsync();
 
         // Assert
-        result.TemperatureCelsius.Should().BeInRange(20.0, 30.0);
+        result!.TemperatureCelsius.Should().BeInRange(20.0, 30.0);
     }
 
     [TestMethod]
@@ -46,7 +46,7 @@ public class Bme280SimulatorReaderTests
         var result = await _reader.ReadSensorDataAsync();
 
         // Assert
-        result.Humidity.Should().BeInRange(40.0, 70.0);
+        result!.Humidity.Should().BeInRange(40.0, 70.0);
     }
 
     [TestMethod]
@@ -56,7 +56,7 @@ public class Bme280SimulatorReaderTests
         var result = await _reader.ReadSensorDataAsync();
 
         // Assert
-        result.MillimetersOfMercury.Should().BeInRange(740.0, 780.0);
+        result!.MillimetersOfMercury.Should().BeInRange(740.0, 780.0);
     }
 
     [TestMethod]
@@ -70,7 +70,7 @@ public class Bme280SimulatorReaderTests
 
         // Assert
         var after = DateTime.UtcNow;
-        result.Timestamp.Should().BeOnOrAfter(before);
+        result!.Timestamp.Should().BeOnOrAfter(before);
         result.Timestamp.Should().BeOnOrBefore(after);
     }
 
@@ -88,7 +88,7 @@ public class Bme280SimulatorReaderTests
         var result = await _reader.ReadSensorDataAsync();
 
         // Assert
-        result.Metadata.Should().NotBeNull();
+        result!.Metadata.Should().NotBeNull();
         result.Metadata.ReaderType.Should().Be("simulator");
     }
 
@@ -100,7 +100,7 @@ public class Bme280SimulatorReaderTests
         var result2 = await _reader.ReadSensorDataAsync();
 
         // Assert - at least one value should differ (statistically very likely)
-        var allSame = Math.Abs(result1.TemperatureCelsius - result2.TemperatureCelsius) < 0.0001 &&
+        var allSame = Math.Abs(result1!.TemperatureCelsius - result2!.TemperatureCelsius) < 0.0001 &&
                       Math.Abs(result1.Humidity - result2.Humidity) < 0.0001 &&
                       Math.Abs(result1.MillimetersOfMercury - result2.MillimetersOfMercury) < 0.0001;
         allSame.Should().BeFalse("Random values should differ between calls");

@@ -1,0 +1,219 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GekkoLab - App Settings</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 50px auto; padding: 20px; }
+        .nav { margin-bottom: 30px; }
+        .nav a { color: #3498db; text-decoration: none; margin-right: 20px; font-size: 1.1em; }
+        .nav a:hover { text-decoration: underline; }
+        .nav a.active { color: #333; font-weight: bold; }
+        .section-title { font-size: 1.5em; font-weight: bold; margin-top: 40px; margin-bottom: 20px; color: #333; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; }
+        .config-section { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .config-section-title { font-size: 1.1em; font-weight: bold; color: #495057; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .config-section-title .icon { font-size: 1.3em; }
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+        .config-item { display: flex; justify-content: space-between; padding: 8px 12px; background: white; border-radius: 4px; border: 1px solid #dee2e6; }
+        .config-item-label { color: #6c757d; font-size: 0.9em; }
+        .config-item-value { color: #212529; font-weight: 500; font-size: 0.9em; text-align: right; max-width: 60%; word-break: break-all; }
+        .config-item-value.enabled { color: #28a745; }
+        .config-item-value.disabled { color: #dc3545; }
+        .config-item-value.simulator { color: #fd7e14; }
+        .loading { text-align: center; padding: 40px; color: #6c757d; }
+        .error { color: #dc3545; text-align: center; padding: 40px; }
+        .refresh-btn { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+        .refresh-btn:hover { background: #2980b9; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .last-updated { color: #6c757d; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+<h1>GekkoLab - App Settings</h1>
+
+<div class="nav">
+    <a href="index.html">🏠 Dashboard</a>
+    <a href="metrics.html">📊 System Metrics</a>
+    <a href="settings.html" class="active">⚙️ Settings</a>
+</div>
+
+<div class="header-row">
+    <div class="last-updated" id="lastUpdated">Loading configuration...</div>
+    <button class="refresh-btn" onclick="fetchConfiguration()">🔄 Refresh</button>
+</div>
+
+<div id="configContent">
+    <div class="loading">Loading configuration...</div>
+</div>
+
+<script>
+    function formatBoolean(value) {
+        if (value === true) return '<span class="enabled">✓ Enabled</span>';
+        if (value === false) return '<span class="disabled">✗ Disabled</span>';
+        return value;
+    }
+
+    function formatSimulator(value) {
+        if (value === true) return '<span class="simulator">🔬 Simulator</span>';
+        if (value === false) return '<span class="enabled">🔌 Real Hardware</span>';
+        return value;
+    }
+
+    function formatValue(value) {
+        if (value === null || value === undefined || value === '') return '<span style="color: #adb5bd;">Not set</span>';
+        return value;
+    }
+
+    function createConfigItem(label, value, formatter = formatValue) {
+        return `
+            <div class="config-item">
+                <span class="config-item-label">${label}</span>
+                <span class="config-item-value">${formatter(value)}</span>
+            </div>
+        `;
+    }
+
+    async function fetchConfiguration() {
+        const container = document.getElementById('configContent');
+        
+        try {
+            const response = await fetch('/api/config');
+            if (!response.ok) throw new Error('Failed to load configuration');
+            const config = await response.json();
+
+            let html = '';
+
+            // Sensor Configuration
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">🌡️</span> Sensor Configuration</div>
+                    <div class="config-grid">
+                        ${createConfigItem('Polling Interval', config.sensorConfiguration.pollingInterval)}
+                        ${createConfigItem('I2C Address', config.sensorConfiguration.i2CAddress)}
+                        ${createConfigItem('Mode', config.sensorConfiguration.useSimulator, formatSimulator)}
+                        ${createConfigItem('Enable Retry', config.sensorConfiguration.enableRetry, formatBoolean)}
+                        ${createConfigItem('Max Retry Attempts', config.sensorConfiguration.maxRetryAttempts)}
+                        ${createConfigItem('Retry Delay (ms)', config.sensorConfiguration.retryDelayMs)}
+                    </div>
+                </div>
+            `;
+
+            // Camera Configuration
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">📷</span> Camera Configuration</div>
+                    <div class="config-grid">
+                        ${createConfigItem('Mode', config.cameraConfiguration.useSimulator, formatSimulator)}
+                        ${createConfigItem('Resolution', config.cameraConfiguration.width + ' x ' + config.cameraConfiguration.height)}
+                        ${createConfigItem('Quality', config.cameraConfiguration.quality + '%')}
+                    </div>
+                </div>
+            `;
+
+            // Motion Detection
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">🎯</span> Motion Detection</div>
+                    <div class="config-grid">
+                        ${createConfigItem('Status', config.cameraConfiguration.motionDetection.enabled, formatBoolean)}
+                        ${createConfigItem('Polling Interval', config.cameraConfiguration.motionDetection.pollingInterval)}
+                        ${createConfigItem('Min Capture Interval', config.cameraConfiguration.motionDetection.minCaptureInterval)}
+                        ${createConfigItem('Sensitivity', (config.cameraConfiguration.motionDetection.sensitivity * 100).toFixed(0) + '%')}
+                        ${createConfigItem('Capture Directory', config.cameraConfiguration.motionDetection.captureDirectory)}
+                        ${createConfigItem('Max Capture Age (days)', config.cameraConfiguration.motionDetection.maxCaptureAgeDays)}
+                        ${createConfigItem('Max Capture Files', config.cameraConfiguration.motionDetection.maxCaptureFiles)}
+                    </div>
+                </div>
+            `;
+
+            // Performance Monitoring
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">📊</span> Performance Monitoring</div>
+                    <div class="config-grid">
+                        ${createConfigItem('Status', config.performanceMonitoring.enabled, formatBoolean)}
+                        ${createConfigItem('Snapshot Interval', config.performanceMonitoring.snapshotInterval)}
+                        ${createConfigItem('Aggregation Interval', config.performanceMonitoring.aggregationInterval)}
+                        ${createConfigItem('Max Age (days)', config.performanceMonitoring.maxAgeDays)}
+                    </div>
+                </div>
+            `;
+
+            // Weather Configuration
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">🌤️</span> Weather Configuration</div>
+                    <div class="config-grid">
+                        ${createConfigItem('Status', config.weatherConfiguration.enabled, formatBoolean)}
+                        ${createConfigItem('Polling Interval', config.weatherConfiguration.pollingInterval)}
+                        ${createConfigItem('Location', config.weatherConfiguration.location)}
+                        ${createConfigItem('Coordinates', config.weatherConfiguration.latitude.toFixed(2) + ', ' + config.weatherConfiguration.longitude.toFixed(2))}
+                    </div>
+                </div>
+            `;
+
+            // Gecko Detector
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">🦎</span> Gecko Detector</div>
+                    <div class="config-grid">
+                        ${createConfigItem('Status', config.gekkoDetector.enabled, formatBoolean)}
+                        ${createConfigItem('Mode', config.gekkoDetector.useSimulator, formatSimulator)}
+                        ${createConfigItem('Model Path', config.gekkoDetector.modelPath)}
+                        ${createConfigItem('Polling Interval', config.gekkoDetector.pollingInterval)}
+                        ${createConfigItem('Input Size', config.gekkoDetector.inputWidth + ' x ' + config.gekkoDetector.inputHeight)}
+                        ${createConfigItem('Confidence Threshold', (config.gekkoDetector.confidenceThreshold * 100).toFixed(0) + '%')}
+                    </div>
+                </div>
+            `;
+
+            // Azure Configuration
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">☁️</span> Azure Configuration</div>
+                    <div class="config-grid">
+                        ${createConfigItem('Status', config.azureConfiguration.enabled, formatBoolean)}
+                        ${createConfigItem('Publish Interval (min)', config.azureConfiguration.publishIntervalMinutes)}
+                    </div>
+                </div>
+            `;
+
+            // Logging Configuration
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">📝</span> Logging Configuration</div>
+                    <div class="config-grid">
+                        ${createConfigItem('Default Level', config.logging.logLevel.default)}
+                        ${createConfigItem('ASP.NET Core Level', config.logging.logLevel.microsoftAspNetCore)}
+                        ${createConfigItem('Entity Framework Level', config.logging.logLevel.entityFramework)}
+                    </div>
+                </div>
+            `;
+
+            // Database Configuration
+            html += `
+                <div class="config-section">
+                    <div class="config-section-title"><span class="icon">🗄️</span> Database Configuration</div>
+                    <div class="config-grid">
+                        ${createConfigItem('SQLite Connection', config.connectionStrings.sqLite)}
+                        ${createConfigItem('Kestrel URL', config.kestrel.httpUrl)}
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+            document.getElementById('lastUpdated').textContent = 'Last updated: ' + new Date().toLocaleString();
+
+        } catch (err) {
+            console.error('Error fetching configuration:', err);
+            container.innerHTML = '<div class="error">❌ Failed to load configuration. Please try again.</div>';
+            document.getElementById('lastUpdated').textContent = 'Failed to load';
+        }
+    }
+
+    // Initial load
+    fetchConfiguration();
+</script>
+</body>
+</html>

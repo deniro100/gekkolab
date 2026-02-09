@@ -28,6 +28,7 @@ public class SystemMetricsRepository : ISystemMetricsRepository
     public async Task<SystemMetrics?> GetLatestAsync()
     {
         return await _context.SystemMetrics
+            .AsNoTracking()
             .OrderByDescending(m => m.Timestamp)
             .FirstOrDefaultAsync();
     }
@@ -35,6 +36,7 @@ public class SystemMetricsRepository : ISystemMetricsRepository
     public async Task<IEnumerable<SystemMetrics>> GetByDateRangeAsync(DateTime from, DateTime to)
     {
         return await _context.SystemMetrics
+            .AsNoTracking()
             .Where(m => m.Timestamp >= from && m.Timestamp <= to)
             .OrderBy(m => m.Timestamp)
             .ToListAsync();

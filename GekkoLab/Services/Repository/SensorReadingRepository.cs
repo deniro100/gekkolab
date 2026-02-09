@@ -22,6 +22,7 @@ namespace GekkoLab.Services.Repository;
         public async Task<SensorReading?> GetLatestReadingAsync()
         {
             return await _context.SensorReadings
+                .AsNoTracking()
                 .OrderByDescending(r => r.Timestamp)
                 .FirstOrDefaultAsync();
         }
@@ -29,6 +30,7 @@ namespace GekkoLab.Services.Repository;
         public async Task<List<SensorReading>> GetReadingsByDateRangeAsync(DateTime from, DateTime to)
         {
             return await _context.SensorReadings
+                .AsNoTracking()
                 .Where(r => r.Timestamp >= from && r.Timestamp <= to)
                 .OrderBy(r => r.Timestamp)
                 .ToListAsync();

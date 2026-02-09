@@ -39,11 +39,11 @@ public class Bme280Reader : IBme280Reader, IDisposable
         }
     }
 
-    public Task<Bme280Data>? ReadSensorDataAsync()
+    public Task<Bme280Data?> ReadSensorDataAsync()
     {
         if (_bme280 == null)
         {
-            return null;
+            return Task.FromResult<Bme280Data?>(null);
         }
 
         try
@@ -52,10 +52,10 @@ public class Bme280Reader : IBme280Reader, IDisposable
             
             if (!result.Temperature.HasValue  || !result.Humidity.HasValue || !result.Pressure.HasValue)
             {
-                return null;
+                return Task.FromResult<Bme280Data?>(null);
             }
 
-            return Task.FromResult(new Bme280Data(
+            return Task.FromResult<Bme280Data?>(new Bme280Data(
                 TemperatureCelsius: result.Temperature.Value.DegreesCelsius,
                 Humidity: result.Humidity.Value.Percent,
                 MillimetersOfMercury: result.Pressure.Value.MillimetersOfMercury,
@@ -64,7 +64,7 @@ public class Bme280Reader : IBme280Reader, IDisposable
         }
         catch (Exception)
         {
-            return null;
+            return Task.FromResult<Bme280Data?>(null);
         }
     }
 

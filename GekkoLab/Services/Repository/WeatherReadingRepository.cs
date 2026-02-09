@@ -32,6 +32,7 @@ public class WeatherReadingRepository : IWeatherReadingRepository
     public async Task<WeatherReading?> GetLatestAsync()
     {
         return await _context.WeatherReadings
+            .AsNoTracking()
             .OrderByDescending(r => r.Timestamp)
             .FirstOrDefaultAsync();
     }
@@ -39,6 +40,7 @@ public class WeatherReadingRepository : IWeatherReadingRepository
     public async Task<IEnumerable<WeatherReading>> GetHistoryAsync(DateTime from, DateTime to)
     {
         return await _context.WeatherReadings
+            .AsNoTracking()
             .Where(r => r.Timestamp >= from && r.Timestamp <= to)
             .OrderBy(r => r.Timestamp)
             .ToListAsync();

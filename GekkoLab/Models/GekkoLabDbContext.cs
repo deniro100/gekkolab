@@ -54,6 +54,7 @@ public class GekkoLabDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.Timestamp);
             entity.HasIndex(e => e.GekkoDetected);
+            entity.HasIndex(e => new { e.Timestamp, e.GekkoDetected });
             entity.Property(e => e.ImagePath).HasMaxLength(500);
             entity.Property(e => e.Label).HasMaxLength(100);
             entity.Property(e => e.Confidence).IsRequired();

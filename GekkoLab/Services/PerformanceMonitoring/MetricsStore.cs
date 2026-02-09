@@ -42,6 +42,10 @@ public class InMemoryMetricsStore : IMetricsStore
         
         // Add to display cache with expiry
         var key = $"snapshot_{snapshot.Timestamp.Ticks}";
+        
+        // Add key before cache entry to prevent race with eviction callback
+        _cacheKeys.TryAdd(key, 0);
+        
         var cacheOptions = new MemoryCacheEntryOptions()
             .SetAbsoluteExpiration(_maxRetention)
             .RegisterPostEvictionCallback((evictedKey, value, reason, state) =>
@@ -50,7 +54,6 @@ public class InMemoryMetricsStore : IMetricsStore
             });
         
         _displayCache.Set(key, snapshot, cacheOptions);
-        _cacheKeys.TryAdd(key, 0);
     }
 
     public IReadOnlyList<MetricsSnapshot> GetSnapshots(TimeSpan? duration = null)

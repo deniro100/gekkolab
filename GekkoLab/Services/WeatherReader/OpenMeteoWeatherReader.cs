@@ -45,12 +45,13 @@ public interface IWeatherReader
 /// <summary>
 /// Weather reader that fetches data from Open-Meteo API for Redmond, WA
 /// </summary>
-public class OpenMeteoWeatherReader : IWeatherReader
+public class OpenMeteoWeatherReader : IWeatherReader, IDisposable
 {
     private readonly ILogger<OpenMeteoWeatherReader> _logger;
     private readonly HttpClient _httpClient;
     private readonly double _latitude;
     private readonly double _longitude;
+    private readonly bool _disposeHttpClient;
 
     // Redmond, WA coordinates
     public const double DefaultLatitude = 47.67;
@@ -59,8 +60,12 @@ public class OpenMeteoWeatherReader : IWeatherReader
     public OpenMeteoWeatherReader(
         ILogger<OpenMeteoWeatherReader> logger,
         IConfiguration configuration)
-        : this(logger, configuration, new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+        : this(logger, configuration, new HttpClient(new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+        }) { Timeout = TimeSpan.FromSeconds(30) })
     {
+        _disposeHttpClient = true;
     }
 
     /// <summary>
@@ -144,6 +149,14 @@ public class OpenMeteoWeatherReader : IWeatherReader
                 IsValid = false,
                 ErrorMessage = ex.Message
             };
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposeHttpClient)
+        {
+            _httpClient.Dispose();
         }
     }
 }

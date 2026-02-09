@@ -44,6 +44,7 @@ public class GekkoDetectionRepository : IGekkoDetectionRepository
     public async Task<GekkoDetectionResult?> GetLatestAsync()
     {
         return await _context.GekkoDetections
+            .AsNoTracking()
             .OrderByDescending(r => r.Timestamp)
             .FirstOrDefaultAsync();
     }
@@ -51,6 +52,7 @@ public class GekkoDetectionRepository : IGekkoDetectionRepository
     public async Task<GekkoDetectionResult?> GetLatestWithGekkoAsync()
     {
         return await _context.GekkoDetections
+            .AsNoTracking()
             .Where(r => r.GekkoDetected)
             .OrderByDescending(r => r.Timestamp)
             .FirstOrDefaultAsync();
@@ -59,6 +61,7 @@ public class GekkoDetectionRepository : IGekkoDetectionRepository
     public async Task<IEnumerable<GekkoDetectionResult>> GetHistoryAsync(DateTime from, DateTime to)
     {
         return await _context.GekkoDetections
+            .AsNoTracking()
             .Where(r => r.Timestamp >= from && r.Timestamp <= to)
             .OrderBy(r => r.Timestamp)
             .ToListAsync();
@@ -67,6 +70,7 @@ public class GekkoDetectionRepository : IGekkoDetectionRepository
     public async Task<IEnumerable<GekkoDetectionResult>> GetDetectionsWithGekkoAsync(DateTime from, DateTime to)
     {
         return await _context.GekkoDetections
+            .AsNoTracking()
             .Where(r => r.Timestamp >= from && r.Timestamp <= to && r.GekkoDetected)
             .OrderByDescending(r => r.Timestamp)
             .ToListAsync();
@@ -74,24 +78,32 @@ public class GekkoDetectionRepository : IGekkoDetectionRepository
 
     public async Task<DetectionStatistics> GetStatisticsAsync(DateTime from, DateTime to)
     {
-        var detections = await _context.GekkoDetections
-            .Where(r => r.Timestamp >= from && r.Timestamp <= to)
-            .ToListAsync();
+        var query = _context.GekkoDetections
+            .AsNoTracking()
+            .Where(r => r.Timestamp >= from && r.Timestamp <= to);
 
-        var totalDetections = detections.Count;
-        var gekkoDetections = detections.Count(r => r.GekkoDetected);
-        var lastGekko = detections
+        var totalDetections = await query.CountAsync();
+
+        if (totalDetections == 0)
+        {
+            return new DetectionStatistics();
+        }
+
+        var gekkoDetections = await query.CountAsync(r => r.GekkoDetected);
+        var averageConfidence = await query.AverageAsync(r => (double)r.Confidence);
+        var lastGekkoDetection = await query
             .Where(r => r.GekkoDetected)
             .OrderByDescending(r => r.Timestamp)
-            .FirstOrDefault();
+            .Select(r => (DateTime?)r.Timestamp)
+            .FirstOrDefaultAsync();
 
         return new DetectionStatistics
         {
             TotalDetections = totalDetections,
             GekkoDetections = gekkoDetections,
-            GekkoDetectionRate = totalDetections > 0 ? (double)gekkoDetections / totalDetections : 0,
-            AverageConfidence = detections.Any() ? detections.Average(r => r.Confidence) : 0,
-            LastGekkoDetection = lastGekko?.Timestamp
+            GekkoDetectionRate = (double)gekkoDetections / totalDetections,
+            AverageConfidence = (float)averageConfidence,
+            LastGekkoDetection = lastGekkoDetection
         };
     }
 }
